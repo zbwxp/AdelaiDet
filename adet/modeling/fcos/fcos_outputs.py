@@ -11,7 +11,6 @@ from fvcore.nn import sigmoid_focal_loss_jit
 from adet.utils.comm import reduce_sum
 from adet.layers import ml_nms, IOULoss
 
-
 logger = logging.getLogger(__name__)
 
 INF = 100000000
@@ -45,9 +44,19 @@ def compute_ctrness_targets(reg_targets):
     left_right = reg_targets[:, [0, 2]]
     top_bottom = reg_targets[:, [1, 3]]
     ctrness = (left_right.min(dim=-1)[0] / left_right.max(dim=-1)[0]) * \
-                 (top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0])
+              (top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0])
     return torch.sqrt(ctrness)
 
+
+def _divide_list(l, num_loc_list):
+    start = 0
+    end = 0
+    result = ()
+    for i in num_loc_list:
+        end += i
+        result += (l[start:end],)
+        start += i
+    return result
 
 class FCOSOutputs(nn.Module):
     def __init__(self, cfg):
@@ -80,21 +89,40 @@ class FCOSOutputs(nn.Module):
         soi.append([prev_size, INF])
         self.sizes_of_interest = soi
 
+    def _divide_list(self, l, num_loc_list):
+        start = 0
+        end = 0
+        for i in num_loc_list:
+            end += i
+            yield tuple(l[start:end])
+            start += i
+
     def _transpose(self, training_targets, num_loc_list):
         '''
         This function is used to transpose image first training targets to level first ones
         :return: level first training targets
         '''
         for im_i in range(len(training_targets)):
-            training_targets[im_i] = torch.split(
-                training_targets[im_i], num_loc_list, dim=0
-            )
+            if torch.is_tensor(training_targets[im_i]):
+                training_targets[im_i] = torch.split(
+                    training_targets[im_i], num_loc_list, dim=0
+                )
+            else:
+                training_targets[im_i] = _divide_list(training_targets[im_i], num_loc_list)
 
         targets_level_first = []
         for targets_per_level in zip(*training_targets):
-            targets_level_first.append(
-                torch.cat(targets_per_level, dim=0)
-            )
+            if torch.is_tensor(targets_per_level[0]):
+                targets_level_first.append(
+                    torch.cat(targets_per_level, dim=0)
+                )
+            else:
+                flat_list = []
+                for list in targets_per_level:
+                    for item in list:
+                        flat_list.append(item)
+                targets_level_first.append(flat_list)
+
         return targets_level_first
 
     def _get_ground_truth(self, locations, gt_instances):
@@ -185,7 +213,9 @@ class FCOSOutputs(nn.Module):
         return inside_gt_bbox_mask
 
     def compute_targets_for_locations(self, locations, targets, size_ranges, num_loc_list):
+        # NOTE: targets is the gt_instances which as class id
         labels = []
+        image_ids = []
         reg_targets = []
         target_inds = []
         xs, ys = locations[:, 0], locations[:, 1]
@@ -195,6 +225,7 @@ class FCOSOutputs(nn.Module):
             targets_per_im = targets[im_i]
             bboxes = targets_per_im.gt_boxes.tensor
             labels_per_im = targets_per_im.gt_classes
+            image_id = targets_per_im.image_id
 
             # no gt
             if bboxes.numel() == 0:
@@ -244,14 +275,18 @@ class FCOSOutputs(nn.Module):
             labels_per_im = labels_per_im[locations_to_gt_inds]
             labels_per_im[locations_to_min_area == INF] = self.num_classes
 
+            image_id = [image_id[0]] * len(locations_to_gt_inds)
+
             labels.append(labels_per_im)
+            image_ids.append(image_id)
             reg_targets.append(reg_targets_per_im)
             target_inds.append(target_inds_per_im)
 
         return {
             "labels": labels,
             "reg_targets": reg_targets,
-            "target_inds": target_inds
+            "target_inds": target_inds,
+            "image_ids": image_ids
         }
 
     def losses(self, logits_pred, reg_pred, ctrness_pred, locations, gt_instances, top_feats=None):
@@ -283,7 +318,7 @@ class FCOSOutputs(nn.Module):
         instances.reg_targets = cat([
             # Reshape: (N, Hi, Wi, 4) -> (N*Hi*Wi, 4)
             x.reshape(-1, 4) for x in training_targets["reg_targets"]
-        ], dim=0,)
+        ], dim=0, )
         instances.locations = cat([
             x.reshape(-1, 2) for x in training_targets["locations"]
         ], dim=0)
@@ -294,21 +329,21 @@ class FCOSOutputs(nn.Module):
         instances.logits_pred = cat([
             # Reshape: (N, C, Hi, Wi) -> (N, Hi, Wi, C) -> (N*Hi*Wi, C)
             x.permute(0, 2, 3, 1).reshape(-1, self.num_classes) for x in logits_pred
-        ], dim=0,)
+        ], dim=0, )
         instances.reg_pred = cat([
             # Reshape: (N, B, Hi, Wi) -> (N, Hi, Wi, B) -> (N*Hi*Wi, B)
             x.permute(0, 2, 3, 1).reshape(-1, 4) for x in reg_pred
-        ], dim=0,)
+        ], dim=0, )
         instances.ctrness_pred = cat([
             # Reshape: (N, 1, Hi, Wi) -> (N*Hi*Wi,)
             x.permute(0, 2, 3, 1).reshape(-1) for x in ctrness_pred
-        ], dim=0,)
+        ], dim=0, )
 
         if len(top_feats) > 0:
             instances.top_feats = cat([
                 # Reshape: (N, -1, Hi, Wi) -> (N*Hi*Wi, -1)
                 x.permute(0, 2, 3, 1).reshape(-1, x.size(1)) for x in top_feats
-            ], dim=0,)
+            ], dim=0, )
 
         return self.fcos_losses(instances)
 
