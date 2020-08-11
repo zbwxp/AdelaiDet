@@ -8,6 +8,7 @@ from detectron2.config import CfgNode as CN
 _C.MODEL.MOBILENET = False
 _C.MODEL.BACKBONE.ANTI_ALIAS = False
 _C.MODEL.RESNETS.DEFORM_INTERVAL = 1
+#TODO: this controls the randomFlip() function, turn this off for testing, recover later
 _C.INPUT.HFLIP_TRAIN = True
 _C.INPUT.CROP.CROP_INSTANCE = True
 
@@ -30,6 +31,7 @@ _C.MODEL.FCOS.POST_NMS_TOPK_TRAIN = 100
 _C.MODEL.FCOS.POST_NMS_TOPK_TEST = 100
 _C.MODEL.FCOS.TOP_LEVELS = 2
 _C.MODEL.FCOS.NORM = "GN"  # Support GN or none
+# TODO: for testing, do not use scale, recover this later
 _C.MODEL.FCOS.USE_SCALE = True
 
 # Multiply centerness before threshold
@@ -49,7 +51,8 @@ _C.MODEL.FCOS.NUM_BOX_CONVS = 4
 _C.MODEL.FCOS.NUM_SHARE_CONVS = 0
 _C.MODEL.FCOS.CENTER_SAMPLE = True
 _C.MODEL.FCOS.POS_RADIUS = 1.5
-_C.MODEL.FCOS.LOC_LOSS_TYPE = 'giou'
+# TODO: change to iou loss for now, recover it later
+_C.MODEL.FCOS.LOC_LOSS_TYPE = 'iou'
 _C.MODEL.FCOS.YIELD_PROPOSAL = False
 
 # ---------------------------------------------------------------------------- #

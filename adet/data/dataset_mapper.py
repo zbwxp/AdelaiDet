@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from fvcore.common.file_io import PathManager
 from PIL import Image
+import cv2
 from pycocotools import mask as maskUtils
 
 from detectron2.data import detection_utils as utils
@@ -91,7 +92,12 @@ class DatasetMapperWithBasis(DatasetMapper):
         dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
         # USER: Write your own image loading if it's not from a file
         try:
-            image = utils.read_image(dataset_dict["file_name"], format=self.image_format)
+            # TODO: change for now, recover this later
+            # image = utils.read_image(dataset_dict["file_name"], format=self.image_format)
+            if dataset_dict["file_name"] == 'datasets/coco/train2017/000000000139.jpg':
+                print("stop loading in adet data_mapper!!!!!!!!")
+            image = cv2.imread(dataset_dict["file_name"])
+
         except Exception as e:
             print(dataset_dict["file_name"])
             print(e)

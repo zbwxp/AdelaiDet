@@ -58,6 +58,40 @@ class Trainer(DefaultTrainer):
         """
         # Assume these objects must be constructed in this order.
         model = self.build_model(cfg)
+
+        def forward_hook(self, input, output):
+            print('Inside ' + self.__class__.__name__ + ' forward')
+            print('input')
+            print(input)
+            print('output')
+            print(output)
+            # print('input: ', type(input))
+            # print('input[0]: ', type(input[0]))
+            # print('output: ', type(output))
+            # print('')
+            # print('input size:', input[0].size())
+            # print('output size:', output.data.size())
+            # print('output norm:', output.data.norm())
+
+        def backward_hook(self, input, output):
+            print('Inside ' + self.__class__.__name__ + ' backward')
+            print('input')
+            print(input)
+            print('output')
+            print(output)
+
+        # model.register_forward_hook(forward_hook)
+        # model.register_backward_hook(backward_hook)
+
+
+
+
+
+
+
+
+
+
         optimizer = self.build_optimizer(cfg, model)
         data_loader = self.build_train_loader(cfg)
 
@@ -211,6 +245,18 @@ def main(args):
         AdetCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load(
             cfg.MODEL.WEIGHTS, resume=args.resume
         )
+
+        torch.set_printoptions(precision=5, edgeitems=5, sci_mode=True)
+        for name, param in model.named_parameters():
+            if name.split(".")[0] =='proposal_generator':
+                print(name)
+                # print(param)
+
+        for name, buffer in model.named_buffers():
+            if name.split(".")[0] == 'proposal_generator':
+                print(name)
+                # print(buffer)
+
         res = Trainer.test(cfg, model) # d2 defaults.py
         if comm.is_main_process():
             verify_results(cfg, res)
