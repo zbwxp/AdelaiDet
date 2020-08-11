@@ -83,15 +83,6 @@ class Trainer(DefaultTrainer):
         # model.register_forward_hook(forward_hook)
         # model.register_backward_hook(backward_hook)
 
-
-
-
-
-
-
-
-
-
         optimizer = self.build_optimizer(cfg, model)
         data_loader = self.build_train_loader(cfg)
 

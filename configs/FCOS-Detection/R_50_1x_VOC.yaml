@@ -16,7 +16,7 @@ SOLVER:
     STEPS: (12000, 16000)
     MAX_ITER: 18000  # 17.4 epochs
 DATASETS:
-    TRAIN: ('voc_2007_trainval', 'voc_2012_trainval') #'voc_2012_trainval'
+    TRAIN: ('voc_2007_trainval', ) #'voc_2012_trainval'
     TEST: ('voc_2007_test',)
 
 OUTPUT_DIR: "output/fcos/R_50_1x"

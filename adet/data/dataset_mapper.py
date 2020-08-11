@@ -182,6 +182,13 @@ class DatasetMapperWithBasis(DatasetMapper):
             if self.recompute_boxes:
                 instances.gt_boxes = instances.gt_masks.get_bounding_boxes()
             dataset_dict["instances"] = utils.filter_empty_instances(instances)
+            #NOTE: add image id to instances
+            image_id = []
+
+            for i in range(len(dataset_dict["instances"])):
+                image_id.append(dataset_dict["image_id"])
+
+            dataset_dict["instances"].image_id = image_id
 
         if self.basis_loss_on and self.is_train:
             # load basis supervisions
