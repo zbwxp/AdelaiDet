@@ -45,6 +45,7 @@ from adet.evaluation import TextEvaluator
 
 
 
+
 class Trainer(DefaultTrainer):
     """
     This is the same Trainer except that we rewrite the
@@ -232,6 +233,8 @@ def setup(args):
 
 def main(args):
     cfg = setup(args)
+
+
 
     if args.eval_only:
         model = Trainer.build_model(cfg)

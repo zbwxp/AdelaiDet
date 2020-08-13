@@ -10,6 +10,9 @@ from fvcore.nn import sigmoid_focal_loss_jit
 
 from adet.utils.comm import reduce_sum
 from adet.layers import ml_nms, IOULoss
+from adet.history import History
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +91,7 @@ class FCOSOutputs(nn.Module):
             prev_size = s
         soi.append([prev_size, INF])
         self.sizes_of_interest = soi
+        self.history = dict()
 
     def _divide_list(self, l, num_loc_list):
         start = 0
@@ -302,6 +306,18 @@ class FCOSOutputs(nn.Module):
         Returns:
             dict[loss name -> loss value]: A dict mapping from loss name to loss value.
         """
+        #NOTE: record in history
+        for instance in gt_instances:
+            if instance.image_id[0] in self.history:
+                #TODO: check if this really works
+                for anno in self.history[instance.image_id[0]]:
+                    anno.max_correctness_update()
+            else:
+                anno_list = []
+                for i in range(len(instance.image_id)):
+                    anno_list.append(History(i))
+                self.history[instance.image_id[0]] = anno_list
+
 
         training_targets = self._get_ground_truth(locations, gt_instances)
 
