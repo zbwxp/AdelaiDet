@@ -218,6 +218,7 @@ class FCOSOutputs(nn.Module):
         image_ids = []
         reg_targets = []
         target_inds = []
+        target_inds_in_img = []
         xs, ys = locations[:, 0], locations[:, 1]
 
         num_targets = 0
@@ -270,6 +271,10 @@ class FCOSOutputs(nn.Module):
 
             reg_targets_per_im = reg_targets_per_im[range(len(locations)), locations_to_gt_inds]
             target_inds_per_im = locations_to_gt_inds + num_targets
+            #NOTE: add a new instance, record locations_to_gt_inds
+            num_targets_im_stack = locations_to_gt_inds
+
+
             num_targets += len(targets_per_im)
 
             labels_per_im = labels_per_im[locations_to_gt_inds]
@@ -281,12 +286,13 @@ class FCOSOutputs(nn.Module):
             image_ids.append(image_id)
             reg_targets.append(reg_targets_per_im)
             target_inds.append(target_inds_per_im)
-
+            target_inds_in_img.append(num_targets_im_stack)
         return {
             "labels": labels,
             "reg_targets": reg_targets,
             "target_inds": target_inds,
-            "image_ids": image_ids
+            "image_ids": image_ids,
+            "target_inds_in_img": target_inds_in_img
         }
 
     def losses(self, logits_pred, reg_pred, ctrness_pred, locations, gt_instances, top_feats=None):
@@ -308,10 +314,22 @@ class FCOSOutputs(nn.Module):
             # Reshape: (N, 1, Hi, Wi) -> (N*Hi*Wi,)
             x.reshape(-1) for x in training_targets["labels"]
         ], dim=0)
+
+
+
+
+
         instances.gt_inds = cat([
             # Reshape: (N, 1, Hi, Wi) -> (N*Hi*Wi,)
             x.reshape(-1) for x in training_targets["target_inds"]
         ], dim=0)
+
+        instances.gt_inds_per_im = cat([
+            # Reshape: (N, 1, Hi, Wi) -> (N*Hi*Wi,)
+            x.reshape(-1) for x in training_targets["target_inds_in_img"]
+        ], dim=0)
+
+
         instances.im_inds = cat([
             x.reshape(-1) for x in training_targets["im_inds"]
         ], dim=0)
@@ -345,7 +363,20 @@ class FCOSOutputs(nn.Module):
                 x.permute(0, 2, 3, 1).reshape(-1, x.size(1)) for x in top_feats
             ], dim=0, )
 
-        return self.fcos_losses(instances)
+
+
+        flat_list = []
+        for list in training_targets["image_ids"]:
+            for item in list:
+                flat_list.append(item)
+        # instances.image_id = flat_list
+
+        save = instances
+        result = self.fcos_losses(instances)
+        result[0]["instances"].image_ids = [flat_list[i] for i in result[0]["instances"].pos_inds]
+
+        return result
+
 
     def fcos_losses(self, instances):
         num_classes = instances.logits_pred.size(1)
@@ -370,6 +401,7 @@ class FCOSOutputs(nn.Module):
             gamma=self.focal_loss_gamma,
             reduction="sum",
         ) / num_pos_avg
+
 
         instances = instances[pos_inds]
         instances.pos_inds = pos_inds
