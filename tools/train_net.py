@@ -43,6 +43,8 @@ from adet.checkpoint import AdetCheckpointer
 from adet.evaluation import TextEvaluator
 
 
+
+
 class Trainer(DefaultTrainer):
     """
     This is the same Trainer except that we rewrite the
