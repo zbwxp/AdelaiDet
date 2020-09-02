@@ -57,3 +57,6 @@ benchmark.sh
 
 datasets
 training_dir
+
+VOC100
+FCOS_illustrate.zip

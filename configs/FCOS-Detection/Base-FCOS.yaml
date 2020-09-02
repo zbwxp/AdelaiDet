@@ -8,9 +8,11 @@ MODEL:
     IN_FEATURES: ["res3", "res4", "res5"]
   PROPOSAL_GENERATOR:
     NAME: "FCOS"
+
+
   # PIXEL_MEAN: [102.9801, 115.9465, 122.7717]
 DATASETS:
-  TRAIN: ("coco_2014_val",) #("coco_2017_train",)
+  TRAIN:  ("coco_2017_train",) #("coco_2014_val",)
   TEST: ("coco_2017_val",)
 SOLVER:
   IMS_PER_BATCH: 16

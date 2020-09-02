@@ -4,19 +4,27 @@ MODEL:
   RESNETS:
     DEPTH: 50
   FCOS:
-    NORM: ""
+#    NORM: ""
     LOC_LOSS_TYPE: 'iou'
-#    USE_SCALE: False
+#    NUM_CLASSES: 20
+#    INFERENCE_TH_TEST: 0.03
+    #    THRESH_WITH_CTR: True
+    # USE_SCALE: False
+    CTR_EVAL: True
+    CENTER_SAMPLE: True
 INPUT:
   MIN_SIZE_TRAIN: (672,)  # (256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608)
-  MAX_SIZE_TRAIN: 672 #900
+  MAX_SIZE_TRAIN: 672  #900
   MAX_SIZE_TEST: 672   #736
-  MIN_SIZE_TEST: 672     #512
+  MIN_SIZE_TEST: 672   #512
 SOLVER:
     STEPS: (12000, 16000)
-    MAX_ITER: 18000  # 17.4 epochs
+    MAX_ITER: 18000  # 17.4 epochsSOLVER:
+    IMS_PER_BATCH: 16
 DATASETS:
-    TRAIN: ('voc_2007_trainval', ) #'voc_2012_trainval'
+    TRAIN: ('voc_2007_trainval', 'voc_2012_trainval') #'voc_2012_trainval'
     TEST: ('voc_2007_test',)
 
-OUTPUT_DIR: "output/fcos/R_50_1x"
+DATALOADER:
+  NUM_WORKERS: 0
+OUTPUT_DIR: "output/fcos/R_50_1x_VOC"

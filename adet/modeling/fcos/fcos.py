@@ -10,7 +10,8 @@ from detectron2.modeling.proposal_generator.build import PROPOSAL_GENERATOR_REGI
 from adet.layers import DFConv2d, NaiveGroupNorm
 from adet.utils.comm import compute_locations
 from .fcos_outputs import FCOSOutputs
-
+import matplotlib.pyplot as plt
+import seaborn as sn
 
 __all__ = ["FCOS"]
 
@@ -55,6 +56,8 @@ class FCOS(nn.Module):
 
         self.fcos_outputs = FCOSOutputs(cfg)
 
+        self.ctr_eval = cfg.MODEL.FCOS.CTR_EVAL
+
     def forward_head(self, features, top_module=None):
         features = [features[f] for f in self.in_features]
         pred_class_logits, pred_deltas, pred_centerness, top_feats, bbox_towers = self.fcos_head(
@@ -80,6 +83,32 @@ class FCOS(nn.Module):
             features, top_module, self.yield_proposal
         )
 
+        # NOTE: ctrness_pred here are sigmoids
+        plot_logits = False
+        if plot_logits:
+            logits_for_plot = []
+            for logits_per_level in logits_pred:
+                logits_for_plot.append(logits_per_level[0][0].sigmoid())
+
+
+        plot = False
+        if plot:
+            ctr_for_plot = []
+            for ctr_per_level in ctrness_pred:
+                ctr_for_plot.append(ctr_per_level[0][0].sigmoid())
+
+            a = ctr_for_plot[0]
+            level = 0
+            for a in ctr_for_plot:
+                a = a.cpu().detach().numpy()
+                map = sn.heatmap(a, square=True)
+                # plt.show()
+                plt.savefig("level_%i.png"%(level))
+                level += 1
+                plt.close()
+
+
+
         results = {}
         if self.yield_proposal:
             results["features"] = {
@@ -102,8 +131,10 @@ class FCOS(nn.Module):
         else:
             results = self.fcos_outputs.predict_proposals(
                 logits_pred, reg_pred, ctrness_pred,
-                locations, images.image_sizes, top_feats
+                locations, images.image_sizes, top_feats, gt_instances, self.ctr_eval
             )
+
+            results.append(images.image_sizes)
 
             return results, {}
 

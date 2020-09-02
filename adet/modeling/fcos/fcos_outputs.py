@@ -9,10 +9,9 @@ from detectron2.utils.comm import get_world_size
 from fvcore.nn import sigmoid_focal_loss_jit
 
 from adet.utils.comm import reduce_sum
-from adet.layers import ml_nms, IOULoss
+from adet.layers import ml_nms, IOULoss, Ranking_Loss
 from adet.history import History
-
-
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +44,19 @@ def compute_ctrness_targets(reg_targets):
     if len(reg_targets) == 0:
         return reg_targets.new_zeros(len(reg_targets))
     left_right = reg_targets[:, [0, 2]]
+    # NOTE: make negtives to zero
+    left_right[left_right < 0] = 0
+
     top_bottom = reg_targets[:, [1, 3]]
+    top_bottom[top_bottom < 0] = 0
+
     ctrness = (left_right.min(dim=-1)[0] / left_right.max(dim=-1)[0]) * \
               (top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0])
-    return torch.sqrt(ctrness)
+
+    ctrness = torch.sqrt(ctrness)
+    #NOTE: added new lines for nan case
+    ctrness[ctrness != ctrness] = 0
+    return ctrness
 
 
 def _divide_list(l, num_loc_list):
@@ -60,6 +68,73 @@ def _divide_list(l, num_loc_list):
         result += (l[start:end],)
         start += i
     return result
+
+
+def compute_confidence_targets(data, rank_target):
+    if rank_target == 'entropy':
+        return torch.sigmoid(data)
+
+
+def get_target_margin(instances):
+    target1 = instances.gt_ctrs
+    target2 = torch.roll(target1, -1)
+    # make target pair
+    greater = target1 > target2
+    greater = greater.to(torch.float)
+    less = target1 < target2
+    less = less.to(torch.float) * (-1)
+    target = greater + less
+
+    # cale margin this is the ctrness margin
+    margin = abs(target1 - target2)
+
+    # set pairs not within same img, same level, same instance to 0
+    for i in range(len(target) - 1):
+        if (instances.im_inds[i] != instances.im_inds[i + 1]) or \
+                (instances.fpn_levels[i] != instances.fpn_levels[i + 1]) or \
+                (instances.gt_inds[i] != instances.gt_inds[i + 1]):
+            target[i] = 0
+            margin[i] = 0
+    target[-1] = 0
+
+    return target, margin
+
+
+# box x0,y0,x1,y1
+def is_in_box(loc, box):
+    if box[0] < loc[0] < box[2] and box[1] < loc[1] < box[3]:
+        return 1
+    else:
+        return 0
+
+
+def num_loc_per_level(level, box):
+    count = 0
+    for loc in level:
+        count += is_in_box(loc, box)
+    return count
+
+
+def count_loc_num(locations, box):
+    count = 0
+    for level in locations:
+        count += num_loc_per_level(level, box)
+    return count
+
+
+def multi_level_location_per_instance(locations, gt_instances):
+    # locations: list of n levels
+    # gt_instances: list of n imgs
+
+    for img in gt_instances:
+        count = 0
+        targets_per_box = []
+        for box in img.gt_boxes:
+            count += count_loc_num(locations, box)
+            targets_per_box.append(count)
+            count = 0
+        img.total_targets_per_box = targets_per_box
+
 
 class FCOSOutputs(nn.Module):
     def __init__(self, cfg):
@@ -73,6 +148,8 @@ class FCOSOutputs(nn.Module):
         self.pre_nms_topk_train = cfg.MODEL.FCOS.PRE_NMS_TOPK_TRAIN
         self.post_nms_topk_train = cfg.MODEL.FCOS.POST_NMS_TOPK_TRAIN
         self.loc_loss_func = IOULoss(cfg.MODEL.FCOS.LOC_LOSS_TYPE)
+        # NOTE: add ranking loss to ctr
+        self.ctr_ranking_loss = Ranking_Loss()
 
         self.pre_nms_thresh_test = cfg.MODEL.FCOS.INFERENCE_TH_TEST
         self.pre_nms_topk_test = cfg.MODEL.FCOS.PRE_NMS_TOPK_TEST
@@ -227,6 +304,7 @@ class FCOSOutputs(nn.Module):
 
         num_targets = 0
         for im_i in range(len(targets)):
+
             targets_per_im = targets[im_i]
             bboxes = targets_per_im.gt_boxes.tensor
             labels_per_im = targets_per_im.gt_classes
@@ -275,9 +353,8 @@ class FCOSOutputs(nn.Module):
 
             reg_targets_per_im = reg_targets_per_im[range(len(locations)), locations_to_gt_inds]
             target_inds_per_im = locations_to_gt_inds + num_targets
-            #NOTE: add a new instance, record locations_to_gt_inds
+            # NOTE: add a new instance, record locations_to_gt_inds
             num_targets_im_stack = locations_to_gt_inds
-
 
             num_targets += len(targets_per_im)
 
@@ -306,10 +383,10 @@ class FCOSOutputs(nn.Module):
         Returns:
             dict[loss name -> loss value]: A dict mapping from loss name to loss value.
         """
-        #NOTE: record in history
+        # NOTE: record in history
         for instance in gt_instances:
             if instance.image_id[0] in self.history:
-                #TODO: check if this really works
+                # TODO: check if this really works
                 for anno in self.history[instance.image_id[0]]:
                     anno.max_correctness_update()
             else:
@@ -318,8 +395,10 @@ class FCOSOutputs(nn.Module):
                     anno_list.append(History(i))
                 self.history[instance.image_id[0]] = anno_list
 
-
         training_targets = self._get_ground_truth(locations, gt_instances)
+
+        # NOTE: count how many locations per instance
+        # multi_level_location_per_instance(locations, gt_instances)
 
         # Collect all logits and regression predictions over feature maps
         # and images to arrive at the same shape as the labels and targets
@@ -331,10 +410,6 @@ class FCOSOutputs(nn.Module):
             x.reshape(-1) for x in training_targets["labels"]
         ], dim=0)
 
-
-
-
-
         instances.gt_inds = cat([
             # Reshape: (N, 1, Hi, Wi) -> (N*Hi*Wi,)
             x.reshape(-1) for x in training_targets["target_inds"]
@@ -344,6 +419,7 @@ class FCOSOutputs(nn.Module):
             # Reshape: (N, 1, Hi, Wi) -> (N*Hi*Wi,)
             x.reshape(-1) for x in training_targets["target_inds_in_img"]
         ], dim=0)
+
 
 
         instances.im_inds = cat([
@@ -364,6 +440,11 @@ class FCOSOutputs(nn.Module):
             # Reshape: (N, C, Hi, Wi) -> (N, Hi, Wi, C) -> (N*Hi*Wi, C)
             x.permute(0, 2, 3, 1).reshape(-1, self.num_classes) for x in logits_pred
         ], dim=0, )
+
+
+        # TODO: just for testing, delete later
+        # loss = self.ctr_ranking_loss(logits_pred[0],logits_pred[0])
+
         instances.reg_pred = cat([
             # Reshape: (N, B, Hi, Wi) -> (N, Hi, Wi, B) -> (N*Hi*Wi, B)
             x.permute(0, 2, 3, 1).reshape(-1, 4) for x in reg_pred
@@ -379,8 +460,6 @@ class FCOSOutputs(nn.Module):
                 x.permute(0, 2, 3, 1).reshape(-1, x.size(1)) for x in top_feats
             ], dim=0, )
 
-
-
         flat_list = []
         for list in training_targets["image_ids"]:
             for item in list:
@@ -391,8 +470,9 @@ class FCOSOutputs(nn.Module):
         result = self.fcos_losses(instances)
         result[0]["instances"].image_ids = [flat_list[i] for i in result[0]["instances"].pos_inds]
 
-        return result
+        # NOTE: temp added code
 
+        return result
 
     def fcos_losses(self, instances):
         num_classes = instances.logits_pred.size(1)
@@ -400,15 +480,55 @@ class FCOSOutputs(nn.Module):
 
         labels = instances.labels.flatten()
 
+        '''
+            The negtive sample part:
+            pred_inds: the inds for where cls preds a value
+        '''
+        thresh = self.pre_nms_thresh_train
+        max_logits, _ = instances.logits_pred.max(dim=1)
+        bool_inds = max_logits.sigmoid() > thresh
+        pred_inds = torch.nonzero(bool_inds).squeeze(1)
+
         pos_inds = torch.nonzero(labels != num_classes).squeeze(1)
         num_pos_local = pos_inds.numel()
         num_gpus = get_world_size()
         total_num_pos = reduce_sum(pos_inds.new_tensor([num_pos_local])).item()
         num_pos_avg = max(total_num_pos / num_gpus, 1.0)
 
+        # neg_inds = []
+        # for value in pred_inds:
+        #     if len(torch.nonzero(pos_inds == value)) == 0:
+        #         neg_inds.append(value)
+        #
+        # neg_inds = torch.tensor(neg_inds, device='cuda')
+
+        combined = torch.cat((pos_inds, pred_inds))
+        uniques, counts = combined.unique(return_counts=True)
+        comb_inds = uniques
+
+
+        num_comb_local = comb_inds.numel()
+        total_num_comb = reduce_sum(comb_inds.new_tensor([num_comb_local])).item()
+        num_comb_avg = max(total_num_comb / num_gpus, 1.0)
+
+        comb_ctrness_targets = compute_ctrness_targets(instances.reg_targets[comb_inds])
+        if comb_inds.numel() > 0:
+            comb_ctrness_loss = F.binary_cross_entropy_with_logits(
+                instances.ctrness_pred[comb_inds],
+                comb_ctrness_targets,
+                reduction="sum"
+            ) / num_comb_avg
+        else:
+            comb_ctrness_loss = instances.ctrness_pred[comb_inds].sum() * 0
+
+
+
+
         # prepare one_hot
         class_target = torch.zeros_like(instances.logits_pred)
         class_target[pos_inds, labels[pos_inds]] = 1
+
+        confidence = instances.logits_pred[pos_inds, labels[pos_inds]]
 
         class_loss = sigmoid_focal_loss_jit(
             instances.logits_pred,
@@ -418,7 +538,6 @@ class FCOSOutputs(nn.Module):
             reduction="sum",
         ) / num_pos_avg
 
-
         instances = instances[pos_inds]
         instances.pos_inds = pos_inds
 
@@ -426,6 +545,11 @@ class FCOSOutputs(nn.Module):
         ctrness_targets_sum = ctrness_targets.sum()
         loss_denorm = max(reduce_sum(ctrness_targets_sum).item() / num_gpus, 1e-6)
         instances.gt_ctrs = ctrness_targets
+
+        instances.unique_id = instances.fpn_levels*1000000+instances.gt_inds
+
+
+
 
         if pos_inds.numel() > 0:
             reg_loss = self.loc_loss_func(
@@ -443,11 +567,46 @@ class FCOSOutputs(nn.Module):
             reg_loss = instances.reg_pred.sum() * 0
             ctrness_loss = instances.ctrness_pred.sum() * 0
 
+        #TODO: remove this later
+        confidence_aware = False
+        if confidence_aware:
+            # NOTE: apply loss_within_instance:
+            arg_rank_target = 'entropy'
+            confidence = compute_confidence_targets(confidence, arg_rank_target)
+
+            # make input pair
+            rank_input1 = confidence
+            rank_input2 = torch.roll(confidence, -1)
+
+            rank_target, rank_margin = get_target_margin(instances)
+
+            # if want to use ctrness_margin
+            ctrness_margin_factor = 1
+            rank_margin *= ctrness_margin_factor
+
+            rank_input2 = rank_input2 + rank_margin * rank_target
+
+            # ranking loss
+            ranking_criterion = nn.MarginRankingLoss(margin=0.0).cuda()
+            ranking_loss = ranking_criterion(rank_input1,
+                                             rank_input2,
+                                             rank_target)
+            # print("ranking_loss: ",ranking_loss)
+
+        ctr_loss_rank = self.ctr_ranking_loss(instances)
+
         losses = {
             "loss_fcos_cls": class_loss,
             "loss_fcos_loc": reg_loss,
-            "loss_fcos_ctr": ctrness_loss
+            "loss_fcos_combined_ctr": comb_ctrness_loss
+
         }
+        # "loss_fcos_ctr": ctrness_loss
+        # "loss_fcos_neg_ctr": neg_ctrness_loss
+        # "ctr_loss_rank": ctr_loss_rank,
+
+        # "loss_fcos_ctr": ctrness_loss
+
         extras = {
             "instances": instances,
             "loss_denorm": loss_denorm
@@ -456,7 +615,7 @@ class FCOSOutputs(nn.Module):
 
     def predict_proposals(
             self, logits_pred, reg_pred, ctrness_pred,
-            locations, image_sizes, top_feats=None
+            locations, image_sizes, top_feats=None, gt_instances=None, ctr_eval = False
     ):
         if self.training:
             self.pre_nms_thresh = self.pre_nms_thresh_train
@@ -467,7 +626,42 @@ class FCOSOutputs(nn.Module):
             self.pre_nms_topk = self.pre_nms_topk_test
             self.post_nms_topk = self.post_nms_topk_test
 
+        if ctr_eval and gt_instances is not None:
+            training_targets = self._get_ground_truth(locations, gt_instances)
+            reg_targets = training_targets['reg_targets']
+            gt_ctr_preds = []
+            for i in range(len(reg_targets)):
+                gt_ctr_pred = compute_ctrness_targets(reg_targets[i])
+                gt_ctr_pred = torch.reshape(gt_ctr_pred,ctrness_pred[i].shape)
+                # NOTE: calculated ctrness is [0,1], make it logit and regulate the 0 (0 logit is -inf)
+                gt_ctr_pred = torch.log(gt_ctr_pred) - torch.log1p(-gt_ctr_pred)
+                gt_ctr_pred[gt_ctr_pred < -20] = -20
+                gt_ctr_preds.append(gt_ctr_pred)
+
+        # ctrness_pred = gt_ctr_preds
+
+        # #NOTE: use gt_preds as reg_preds (> -10) is the logits for 0
+        # for i in range(len(gt_ctr_preds)):
+        #     # ctrness_pred[i][gt_ctr_preds[i] > -20] = gt_ctr_preds[i][gt_ctr_preds[i] > -20]
+        #     ctrness_pred[i][gt_ctr_preds[i] < -19] = -20
+
+        # ctrness_pred = gt_ctr_preds
+
+        # #NOTE: use gt_reg_preds
+        # reg_targets = training_targets['reg_targets']
+        # gt_reg_preds = []
+        # for i in range(len(reg_targets)):
+        #     gt_reg_pred = reg_targets[i]
+        #     gt_reg_pred[gt_reg_pred.min(dim=1)[0]<0,:] = 0
+        #     gt_reg_pred = torch.reshape(gt_reg_pred.permute(1, 0), reg_pred[i].shape)
+        #     gt_reg_preds.append(gt_reg_pred)
+        # reg_pred = gt_reg_preds
+
+
+
         sampled_boxes = []
+
+
 
         bundle = {
             "l": locations, "o": logits_pred,
@@ -503,6 +697,8 @@ class FCOSOutputs(nn.Module):
         boxlists = list(zip(*sampled_boxes))
         boxlists = [Instances.cat(boxlist) for boxlist in boxlists]
         boxlists = self.select_over_all_levels(boxlists)
+
+        # NOTE: add image_sizes to boxlists
 
         return boxlists
 

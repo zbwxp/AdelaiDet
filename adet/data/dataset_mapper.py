@@ -92,11 +92,15 @@ class DatasetMapperWithBasis(DatasetMapper):
         dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
         # USER: Write your own image loading if it's not from a file
         try:
-            # TODO: change for now, recover this later
-            # image = utils.read_image(dataset_dict["file_name"], format=self.image_format)
-            if dataset_dict["file_name"] == 'datasets/coco/train2017/000000000139.jpg':
-                print("stop loading in adet data_mapper!!!!!!!!")
-            image = cv2.imread(dataset_dict["file_name"])
+            image = utils.read_image(dataset_dict["file_name"], format=self.image_format)
+            # image1 = cv2.imread(dataset_dict["file_name"])
+            # image2 = np.abs(image.astype(np.float)-image1.astype(np.float)).astype(np.uint8)*10
+            # cv2.namedWindow('a', 0)
+            # cv2.imshow('a',image2 )
+            # cv2.imshow('Numpy Horizontal',image)
+            # cv2.waitKey()
+
+
 
         except Exception as e:
             print(dataset_dict["file_name"])
@@ -147,10 +151,10 @@ class DatasetMapperWithBasis(DatasetMapper):
             )
 
         if not self.is_train:
-            dataset_dict.pop("annotations", None)
+            # dataset_dict.pop("annotations", None)
             dataset_dict.pop("sem_seg_file_name", None)
             dataset_dict.pop("pano_seg_file_name", None)
-            return dataset_dict
+            # return dataset_dict
 
         if "annotations" in dataset_dict:
             # USER: Modify this if you want to keep them for some reason.

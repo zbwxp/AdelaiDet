@@ -3,6 +3,20 @@ MODEL:
   WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
   RESNETS:
     DEPTH: 50
+
+  FCOS:
+    NMS_TH: 0.6
+    CTR_EVAL: True
 INPUT:
   MIN_SIZE_TRAIN: (800,)
+#  MIN_SIZE_TRAIN: (672,)
+#  MAX_SIZE_TRAIN: 672
+#  MAX_SIZE_TEST: 672
+#  MIN_SIZE_TEST: 672
 OUTPUT_DIR: "output/fcos/R_50_1x"
+
+SOLVER:
+  IMS_PER_BATCH: 4
+DATALOADER:
+  NUM_WORKERS: 0
+

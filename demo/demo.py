@@ -6,6 +6,7 @@ import os
 import time
 import cv2
 import tqdm
+import numpy as np
 
 from detectron2.data.detection_utils import read_image
 from detectron2.utils.logger import setup_logger
@@ -45,7 +46,7 @@ def get_parser():
     parser.add_argument(
         "--output",
         help="A file or directory to save output visualizations. "
-        "If not given, will show output in an OpenCV window.",
+             "If not given, will show output in an OpenCV window.",
     )
 
     parser.add_argument(
@@ -99,9 +100,36 @@ if __name__ == "__main__":
                     out_filename = args.output
                 visualized_output.save(out_filename)
             else:
-                cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
-                if cv2.waitKey(0) == 27:
-                    break  # esc to quit
+                im_size = demo.predictor.aug.get_transform(img)
+                scale_x, scale_y = im_size.h / im_size.new_h, im_size.w / im_size.new_w
+                predictions['instances'].orig_locs = predictions['instances'].locations * scale_x
+
+                im = visualized_output.get_image()[:, :, ::-1]
+                im_dot = np.array(im)
+                for i in range(len(predictions['instances'])):
+                    loc = predictions['instances'].orig_locs[i]
+                    box = predictions['instances'].pred_boxes[i].tensor
+                    x0 = int(box[:, 0].item())+1
+                    # if x0 > im_size.h:
+                    #     x0 = im_size.h - 1
+                    y0 = int(box[:, 1].item())+1
+                    # if y0 > im_size.w:
+                    #     y0 = im_size.w - 1
+                    # color = im_dot[x0][y0]
+                    # color = (int(color[0]),int(color[1]),int(color[2]))
+                    # print(x0, y0)
+                    # im_dot = cv2.circle(im_dot, (x0, y0), 1, (0,0,225), 4)
+                    # im_dot = cv2.circle(im_dot, (loc[0], loc[1]), 1, color, 4)
+                    im_dot = cv2.circle(im_dot, (loc[0], loc[1]), 1, (0, 0, 255), 4)
+                    im_dot = cv2.line(im_dot, (x0, y0), (loc[0], loc[1]), (0, 0, 255), 1)
+
+                cv2.imshow(WINDOW_NAME, im_dot)
+                cv2.waitKey(0)
+
+                print("")
+
+                # if cv2.waitKey(0) == 27:
+                #     break  # esc to quit
     elif args.webcam:
         assert args.input is None, "Cannot have both --input and --webcam!"
         cam = cv2.VideoCapture(0)

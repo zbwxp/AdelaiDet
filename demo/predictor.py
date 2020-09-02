@@ -51,6 +51,11 @@ class VisualizationDemo(object):
         """
         vis_output = None
         predictions = self.predictor(image)
+
+        # im_size = self.predictor.aug.get_transform(image)
+        # scale_x, scale_y = im_size.h / im_size.new_h, im_size.w / im_size.new_w
+        # predictions['instances'].orig_locs = predictions['instances'].locations * scale_x
+
         # Convert image from OpenCV BGR format to Matplotlib RGB format.
         image = image[:, :, ::-1]
         if self.vis_text:

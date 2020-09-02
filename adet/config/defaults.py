@@ -33,6 +33,7 @@ _C.MODEL.FCOS.TOP_LEVELS = 2
 _C.MODEL.FCOS.NORM = "GN"  # Support GN or none
 # TODO: for testing, do not use scale, recover this later
 _C.MODEL.FCOS.USE_SCALE = True
+_C.MODEL.FCOS.CTR_EVAL = False
 
 # Multiply centerness before threshold
 # This will affect the final performance by about 0.05 AP but save some time
