@@ -14,6 +14,12 @@ MODEL:
     USE_SCALE: True
   CONDINST:
     MAX_PROPOSALS: 500
+    MASK_BRANCH:
+      SEMANTIC_LOSS_ON: False # adjustments original is False
+  PANOPTIC_FPN:
+    COMBINE:
+      ENABLED: False
+
 DATASETS:
   TRAIN: ("coco_2017_train",)
   TEST: ("coco_2017_val",)
@@ -24,3 +30,5 @@ SOLVER:
   MAX_ITER: 90000
 INPUT:
   MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
+#DATALOADER:
+#  NUM_WORKERS: 0

@@ -11,6 +11,7 @@ MODEL:
     NAME: "FCOS"
   BASIS_MODULE:
     LOSS_ON: True
+    NORM: "BN"    #change from "SyncBN for single GPU
   PANOPTIC_FPN:
     COMBINE:
       ENABLED: False
@@ -21,9 +22,12 @@ DATASETS:
   TRAIN: ("coco_2017_train",)
   TEST: ("coco_2017_val",)
 SOLVER:
-  IMS_PER_BATCH: 16
+  IMS_PER_BATCH: 3
   BASE_LR: 0.01  # Note that RetinaNet uses a different default learning rate
   STEPS: (60000, 80000)
   MAX_ITER: 90000
 INPUT:
   MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
+DATALOADER:
+  NUM_WORKERS: 0
+

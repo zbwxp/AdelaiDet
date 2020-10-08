@@ -68,6 +68,7 @@ class MaskBranch(nn.Module):
             torch.nn.init.constant_(self.logits.bias, bias_value)
 
     def forward(self, features, gt_instances=None):
+        #NOTE: input of mask branch is p3, p4, p5 add up p4, p5 bilinear
         for i, f in enumerate(self.in_features):
             if i == 0:
                 x = self.refine[i](features[f])
@@ -90,6 +91,7 @@ class MaskBranch(nn.Module):
 
         losses = {}
         # auxiliary thing semantic loss
+        # NOTE: only p3 is considered
         if self.training and self.sem_loss_on:
             logits_pred = self.logits(self.seg_head(
                 features[self.in_features[0]]

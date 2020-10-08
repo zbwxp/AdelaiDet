@@ -5,11 +5,26 @@ from torch import nn
 from adet.utils.comm import compute_locations, aligned_bilinear
 
 
+def dice_coefficient_orig(x, target):
+    eps = 1e-5
+    n_inst = x.size(0)
+    x = x.reshape(n_inst, -1)
+    target = target.reshape(n_inst, -1)
+    intersection = (x * target).sum(dim=1)
+    union = (x ** 2.0).sum(dim=1) + (target ** 2.0).sum(dim=1) + eps
+    loss = 1. - (2 * intersection / union)
+    return loss
+
 def dice_coefficient(x, target):
     eps = 1e-5
     n_inst = x.size(0)
     x = x.reshape(n_inst, -1)
     target = target.reshape(n_inst, -1)
+
+    rate = target.sum(dim=1, keepdim=True) / float(target.size(1))
+    x = torch.where(rate <= 0.5, x, 1 - x)
+    target = torch.where(rate <= 0.5, target, 1 - target)
+
     intersection = (x * target).sum(dim=1)
     union = (x ** 2.0).sum(dim=1) + (target ** 2.0).sum(dim=1) + eps
     loss = 1. - (2 * intersection / union)
