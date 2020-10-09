@@ -134,6 +134,8 @@ class CondInst(nn.Module):
                 processed_results.append(processed_result)
 
                 if self.combine_on:
+                    if len(instances_per_im) == 0:
+                        instances_per_im.pred_masks = instances_per_im.pred_classes.view(-1,instances_per_im.image_size[0],instances_per_im.image_size[1])
                     panoptic_r = combine_semantic_and_instance_outputs(
                         instances_per_im,
                         sem_seg_r.argmax(dim=0),
