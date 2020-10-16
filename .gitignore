@@ -39,6 +39,7 @@ dist/
 
 # project dirs
 /datasets/coco
+/datasets
 /datasets/lvis
 /datasets/pic
 /datasets/ytvos
@@ -50,6 +51,8 @@ dist/
 /export
 /training_dir
 eval.sh
+
+/results
 
 demo/performance.py
 demo/demo2.py
