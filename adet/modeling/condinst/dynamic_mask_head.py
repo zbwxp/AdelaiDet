@@ -5,7 +5,7 @@ from torch import nn
 from adet.utils.comm import compute_locations, aligned_bilinear
 
 
-def dice_coefficient_orig(x, target):
+def dice_coefficient(x, target):
     eps = 1e-5
     n_inst = x.size(0)
     x = x.reshape(n_inst, -1)
@@ -15,7 +15,7 @@ def dice_coefficient_orig(x, target):
     loss = 1. - (2 * intersection / union)
     return loss
 
-def dice_coefficient(x, target):
+def dice_coefficient_new(x, target):
     eps = 1e-5
     n_inst = x.size(0)
     x = x.reshape(n_inst, -1)

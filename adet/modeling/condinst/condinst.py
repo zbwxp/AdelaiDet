@@ -26,6 +26,15 @@ __all__ = ["CondInst"]
 
 logger = logging.getLogger(__name__)
 
+class Log_var(nn.Module):
+    def __init__(self, init_value=1.0):
+        super(Log_var, self).__init__()
+        self.log_var = nn.Parameter(torch.FloatTensor([init_value]))
+
+    def forward(self, input):
+        # print("log_var = ",self.log_var)
+        return (input * torch.exp(-self.log_var) + self.log_var)*0.5
+
 
 @META_ARCH_REGISTRY.register()
 class CondInst(nn.Module):
@@ -53,6 +62,17 @@ class CondInst(nn.Module):
             self.combine_instances_confidence_threshold = (
                 cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH)
         # Panoptic end
+
+        # NOTE: use multi task learning
+        if cfg.MODEL.USE_MTL:
+            self.log_vars = nn.ModuleList([Log_var(init_value=0.0) for _ in range(6)])
+        else:
+            self.log_vars = None
+
+        # MTL end
+
+
+
 
         # build top module
         in_channels = self.proposal_generator.in_channels_to_top_module
@@ -109,6 +129,12 @@ class CondInst(nn.Module):
             losses.update({"loss_mask": loss_mask})
             if self.combine_on:
                 losses.update(sem_seg_losses)
+
+            i = 0
+            if self.log_vars is not None:
+                for item, loss in losses.items():
+                    losses[item] = self.log_vars[i](loss)
+                    i += 1
             return losses
         else:
             pred_instances_w_masks = self._forward_mask_heads_test(proposals, mask_feats)
