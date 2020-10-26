@@ -19,12 +19,14 @@ MODEL:
   PANOPTIC_FPN:
     COMBINE:
       ENABLED: False
+  SEM_SEG_HEAD:
+    NAME: "SemSegFPNHeadFocal"
 
 DATASETS:
   TRAIN: ("coco_2017_train",)
   TEST: ("coco_2017_val",)
 SOLVER:
-  IMS_PER_BATCH: 16
+  IMS_PER_BATCH: 1
   BASE_LR: 0.01
   STEPS: (60000, 80000)
   MAX_ITER: 90000

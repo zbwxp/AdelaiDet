@@ -100,6 +100,7 @@ class FCOS(nn.Module):
                     )
             return results, losses
         else:
+            # result = {}
             results = self.fcos_outputs.predict_proposals(
                 logits_pred, reg_pred, ctrness_pred,
                 locations, images.image_sizes, top_feats

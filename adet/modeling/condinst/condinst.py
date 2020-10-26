@@ -21,6 +21,7 @@ from .dynamic_mask_head import build_dynamic_mask_head
 from .mask_branch import build_mask_branch
 
 from adet.utils.comm import aligned_bilinear
+from adet.modeling.condinst import semantic_seg
 
 __all__ = ["CondInst"]
 
@@ -70,9 +71,6 @@ class CondInst(nn.Module):
             self.log_vars = None
 
         # MTL end
-
-
-
 
         # build top module
         in_channels = self.proposal_generator.in_channels_to_top_module
