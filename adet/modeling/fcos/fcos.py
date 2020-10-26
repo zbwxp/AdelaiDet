@@ -6,10 +6,12 @@ from torch.nn import functional as F
 
 from detectron2.layers import ShapeSpec, NaiveSyncBatchNorm
 from detectron2.modeling.proposal_generator.build import PROPOSAL_GENERATOR_REGISTRY
+from detectron2.structures.masks import PolygonMasks, polygons_to_bitmask
 
 from adet.layers import DFConv2d, NaiveGroupNorm
 from adet.utils.comm import compute_locations
 from .fcos_outputs import FCOSOutputs
+
 
 
 __all__ = ["FCOS"]
@@ -44,8 +46,11 @@ class FCOS(nn.Module):
     """
     Implement FCOS (https://arxiv.org/abs/1904.01355).
     """
+
     def __init__(self, cfg, input_shape: Dict[str, ShapeSpec]):
         super().__init__()
+        self.device = torch.device(cfg.MODEL.DEVICE)
+
         self.in_features = cfg.MODEL.FCOS.IN_FEATURES
         self.fpn_strides = cfg.MODEL.FCOS.FPN_STRIDES
         self.yield_proposal = cfg.MODEL.FCOS.YIELD_PROPOSAL
@@ -80,6 +85,9 @@ class FCOS(nn.Module):
             features, top_module, self.yield_proposal
         )
 
+        if gt_instances is not None:
+            self.add_bitmasks(gt_instances, images.tensor.size(-2), images.tensor.size(-1))
+
         results = {}
         if self.yield_proposal:
             results["features"] = {
@@ -91,7 +99,7 @@ class FCOS(nn.Module):
                 logits_pred, reg_pred, ctrness_pred,
                 locations, gt_instances, top_feats
             )
-            
+
             if self.yield_proposal:
                 with torch.no_grad():
                     results["proposals"] = self.fcos_outputs.predict_proposals(
@@ -118,6 +126,39 @@ class FCOS(nn.Module):
             )
             locations.append(locations_per_level)
         return locations
+
+    def add_bitmasks(self, instances, im_h, im_w):
+        for per_im_gt_inst in instances:
+            if not per_im_gt_inst.has("gt_masks"):
+                continue
+            # start = int(self.mask_out_stride // 2)
+            if isinstance(per_im_gt_inst.get("gt_masks"), PolygonMasks):
+                polygons = per_im_gt_inst.get("gt_masks").polygons
+                # per_im_bitmasks = []
+                per_im_bitmasks_full = []
+                for per_polygons in polygons:
+                    bitmask = polygons_to_bitmask(per_polygons, im_h, im_w)
+                    bitmask = torch.from_numpy(bitmask).to(self.device).float()
+                    # start = int(self.mask_out_stride // 2)
+                    bitmask_full = bitmask
+                    # bitmask = bitmask[start::self.mask_out_stride, start::self.mask_out_stride]
+
+                    # assert bitmask.size(0) * self.mask_out_stride == im_h
+                    # assert bitmask.size(1) * self.mask_out_stride == im_w
+
+                    # per_im_bitmasks.append(bitmask)
+                    per_im_bitmasks_full.append(bitmask_full)
+
+                # per_im_gt_inst.gt_bitmasks = torch.stack(per_im_bitmasks, dim=0)
+                per_im_gt_inst.gt_bitmasks_full = torch.stack(per_im_bitmasks_full, dim=0)
+            else:  # RLE format bitmask
+                bitmasks = per_im_gt_inst.get("gt_masks").tensor
+                h, w = bitmasks.size()[1:]
+                # pad to new size
+                bitmasks_full = F.pad(bitmasks, (0, im_w - w, 0, im_h - h), "constant", 0)
+                # bitmasks = bitmasks_full[:, start::self.mask_out_stride, start::self.mask_out_stride]
+                # per_im_gt_inst.gt_bitmasks = bitmasks
+                per_im_gt_inst.gt_bitmasks_full = bitmasks_full
 
 
 class FCOSHead(nn.Module):
