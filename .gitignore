@@ -48,6 +48,7 @@ dist/
 /debug
 /weights
 /export
+/training_dir
 eval.sh
 
 demo/performance.py
