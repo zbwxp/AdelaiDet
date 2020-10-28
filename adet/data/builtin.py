@@ -1,9 +1,11 @@
 import os
 
-from detectron2.data.datasets.register_coco import register_coco_instances
+from detectron2.data.datasets.register_coco import register_coco_instances, register_coco_panoptic_separated
 from detectron2.data.datasets.builtin_meta import _get_builtin_metadata
 
 from .datasets.text import register_text_instances
+from detectron2.data.datasets.builtin import _PREDEFINED_SPLITS_COCO
+from detectron2.data import DatasetCatalog, MetadataCatalog
 
 # register plane reconstruction
 
@@ -31,6 +33,12 @@ metadata_text = {
 }
 
 
+_PREDEFINED_SPLITS_COCO["coco"] = {
+    "coco_2017_train_xxxxxxxxxxxxxxxxxxxxxxxxx": ("coco/train2017", "coco/annotations/instances_train2017_xxx.json"),
+
+}
+
+
 def register_all_coco(root="datasets"):
     for key, (image_root, json_file) in _PREDEFINED_SPLITS_PIC.items():
         # Assume pre-defined datasets live in `./datasets`.
@@ -49,5 +57,30 @@ def register_all_coco(root="datasets"):
             os.path.join(root, image_root),
         )
 
+
+    register_coco_instances(
+        "coco_2017_train_pano_instance",
+        _get_builtin_metadata("coco"),
+        os.path.join(root, "coco/annotations/instances_from_pano_train2017.json"),
+        os.path.join(root, "coco/train2017"),
+    )
+
+    prefix = "coco_2017_train_pano_instance_panoptic"
+    panoptic_root = 'coco/panoptic_train2017'
+    panoptic_json = 'coco/annotations/panoptic_train2017.json'
+    semantic_root = 'coco/panoptic_stuff_train2017'
+    prefix_instances = prefix[: -len("_panoptic")]
+    instances_meta = MetadataCatalog.get(prefix_instances)
+    image_root, instances_json = instances_meta.image_root, instances_meta.json_file
+
+    register_coco_panoptic_separated(
+        prefix,
+        _get_builtin_metadata("coco_panoptic_separated"),
+        image_root,
+        os.path.join(root, panoptic_root),
+        os.path.join(root, panoptic_json),
+        os.path.join(root, semantic_root),
+        instances_json,
+    )
 
 register_all_coco()

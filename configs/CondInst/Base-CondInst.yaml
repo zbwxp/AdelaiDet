@@ -15,7 +15,7 @@ MODEL:
   CONDINST:
     MAX_PROPOSALS: 500
     MASK_BRANCH:
-      SEMANTIC_LOSS_ON: False # adjustments original is False
+      SEMANTIC_LOSS_ON: True # adjustments original is False
   PANOPTIC_FPN:
     COMBINE:
       ENABLED: False
