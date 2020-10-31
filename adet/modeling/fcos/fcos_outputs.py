@@ -10,7 +10,8 @@ from fvcore.nn import sigmoid_focal_loss_jit
 
 from adet.utils.comm import reduce_sum
 from adet.layers import ml_nms, IOULoss
-
+import cv2
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +50,16 @@ def compute_ctrness_targets(reg_targets):
     return torch.sqrt(ctrness)
 
 
+def compute_polar_ctrness_targets(pos_mask_targets):
+    # only calculate pos centerness targets, otherwise there may be nan
+    centerness_targets = (pos_mask_targets.min(dim=-1)[0] / pos_mask_targets.max(dim=-1)[0])
+    return torch.sqrt(centerness_targets)
+
+
 class FCOSOutputs(nn.Module):
     def __init__(self, cfg):
         super(FCOSOutputs, self).__init__()
+        self.device = torch.device(cfg.MODEL.DEVICE)
 
         self.focal_loss_alpha = cfg.MODEL.FCOS.LOSS_ALPHA
         self.focal_loss_gamma = cfg.MODEL.FCOS.LOSS_GAMMA
@@ -115,6 +123,11 @@ class FCOSOutputs(nn.Module):
             locations, gt_instances, loc_to_size_range, num_loc_list
         )
 
+
+        if gt_instances[0].has("gt_bitmasks_full"):
+            self.calculate_mask_targets(
+                training_targets, locations, gt_instances, loc_to_size_range, num_loc_list)
+
         training_targets["locations"] = [locations.clone() for _ in range(len(gt_instances))]
         training_targets["im_inds"] = [
             locations.new_ones(locations.size(0), dtype=torch.long) * i for i in range(len(gt_instances))
@@ -136,6 +149,118 @@ class FCOSOutputs(nn.Module):
             reg_targets[l] = reg_targets[l] / float(self.strides[l])
 
         return training_targets
+
+    def calculate_mask_targets(self,
+                training_targets, locations, gt_instances, loc_to_size_range, num_loc_list):
+
+        num_points = locations.size(0)
+        mask_targets = []
+        for img_idx in range(len(gt_instances)):
+            mask_centers = []
+            mask_contours = []
+            num_gts = len(gt_instances[img_idx])
+            for mask in gt_instances[img_idx].gt_bitmasks_full:
+                mask = mask.cpu().numpy().astype(np.uint8)
+                cnt, contour = self.get_single_centerpoint(mask)
+                contour = contour[0]
+                contour = torch.Tensor(contour).float()
+                y, x = cnt
+                mask_centers.append([x, y])
+                mask_contours.append(contour)
+            # mask_centers = torch.Tensor(mask_centers).float()
+            # 把mask_centers assign到不同的层上,根据regress_range和重心的位置
+            # mask_centers = mask_centers[None].expand(num_points, num_gts, 2)
+
+            pos_inds = torch.nonzero(training_targets['labels'][img_idx] != 80).squeeze()
+            mask_target = torch.zeros(num_points, 2, device=self.device).float()
+
+            target_inds = training_targets['target_inds'][img_idx]
+            for p in pos_inds:
+                x, y = locations[p]
+                contour_id = target_inds[p] - target_inds.min()
+                pos_mask_contour = mask_contours[contour_id].to(device=self.device)
+
+                dists, coords = self.get_36_coordinates_min_max(x, y, pos_mask_contour)
+                mask_target[p] = dists
+
+            mask_targets.append(mask_target)
+
+
+        training_targets["polar_mask_targets"] = mask_targets
+
+    def get_36_coordinates_min_max(self, c_x, c_y, pos_mask_contour):
+        ct = pos_mask_contour[:, 0, :]
+        x = ct[:, 0] - c_x
+        y = ct[:, 1] - c_y
+        # angle = np.arctan2(x, y)*180/np.pi
+        angle = torch.atan2(x, y) * 180 / np.pi
+        angle[angle < 0] += 360
+        angle = angle.int()
+
+        # dist = np.sqrt(x ** 2 + y ** 2)
+        dist = torch.sqrt(x ** 2 + y ** 2)
+
+        angle, idx = torch.sort(angle)
+        dist = dist[idx]
+
+        # round up even more
+        angle = angle//45*45
+
+        max_distance = dist.max()
+        # min_distance = dist[angle == angle[dist.min(dim=-1)[1]]].max()
+        min_distance = INF
+        for value in angle.unique():
+            d = dist[angle == value].max()
+            if d < min_distance:
+                min_distance = d
+
+        distance = torch.zeros(2)
+        distance[1] = max_distance
+        distance[0] = min_distance
+
+        return distance, []
+
+
+        #生成36个角度
+        # new_coordinate = {}
+        # for i in range(0, 360, 10):
+        #     if i in angle:
+        #         d = dist[angle==i].max()
+        #         new_coordinate[i] = d
+        #     elif i + 1 in angle:
+        #         d = dist[angle == i+1].max()
+        #         new_coordinate[i] = d
+        #     elif i - 1 in angle:
+        #         d = dist[angle == i-1].max()
+        #         new_coordinate[i] = d
+        #     elif i + 2 in angle:
+        #         d = dist[angle == i+2].max()
+        #         new_coordinate[i] = d
+        #     elif i - 2 in angle:
+        #         d = dist[angle == i-2].max()
+        #         new_coordinate[i] = d
+        #     elif i + 3 in angle:
+        #         d = dist[angle == i+3].max()
+        #         new_coordinate[i] = d
+        #     elif i - 3 in angle:
+        #         d = dist[angle == i-3].max()
+        #         new_coordinate[i] = d
+        #
+        #
+        # distances = torch.zeros(36)
+        #
+        # for a in range(0, 360, 10):
+        #     if not a in new_coordinate.keys():
+        #         new_coordinate[a] = torch.tensor(1e-6)
+        #         distances[a//10] = 1e-6
+        #     else:
+        #         distances[a//10] = new_coordinate[a]
+        # # for idx in range(36):
+        # #     dist = new_coordinate[idx * 10]
+        # #     distances[idx] = dist
+
+        # return distances, new_coordinate
+
 
     def get_sample_region(self, boxes, strides, num_loc_list, loc_xs, loc_ys, bitmasks=None, radius=1):
         if bitmasks is not None:
@@ -248,11 +373,30 @@ class FCOSOutputs(nn.Module):
             reg_targets.append(reg_targets_per_im)
             target_inds.append(target_inds_per_im)
 
+
+
         return {
             "labels": labels,
             "reg_targets": reg_targets,
             "target_inds": target_inds
         }
+
+    def get_single_centerpoint(self, mask):
+        contour, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        contour.sort(key=lambda x: cv2.contourArea(x), reverse=True) #only save the biggest one
+        '''debug IndexError: list index out of range'''
+        count = contour[0][:, 0, :]
+        try:
+            center = self.get_centerpoint(count)
+        except:
+            x,y = count.mean(axis=0)
+            center=[int(x), int(y)]
+
+        # max_points = 360
+        # if len(contour[0]) > max_points:
+        #     compress_rate = len(contour[0]) // max_points
+        #     contour[0] = contour[0][::compress_rate, ...]
+        return center, contour
 
     def losses(self, logits_pred, reg_pred, ctrness_pred, locations, gt_instances, top_feats=None):
         """
@@ -284,6 +428,14 @@ class FCOSOutputs(nn.Module):
             # Reshape: (N, Hi, Wi, 4) -> (N*Hi*Wi, 4)
             x.reshape(-1, 4) for x in training_targets["reg_targets"]
         ], dim=0,)
+
+        if "polar_mask_targets" in training_targets:
+            instances.polar_mask_targets = cat([
+            # Reshape: (N, Hi, Wi, 2) -> (N*Hi*Wi, 2)
+            x.reshape(-1, 2) for x in training_targets["polar_mask_targets"]
+            ], dim=0,)
+
+
         instances.locations = cat([
             x.reshape(-1, 2) for x in training_targets["locations"]
         ], dim=0)
@@ -340,6 +492,9 @@ class FCOSOutputs(nn.Module):
         instances.pos_inds = pos_inds
 
         ctrness_targets = compute_ctrness_targets(instances.reg_targets)
+        if instances.has('polar_mask_targets'):
+            ctrness_targets = compute_polar_ctrness_targets(instances.polar_mask_targets)
+
         ctrness_targets_sum = ctrness_targets.sum()
         loss_denorm = max(reduce_sum(ctrness_targets_sum).item() / num_gpus, 1e-6)
         instances.gt_ctrs = ctrness_targets
@@ -348,8 +503,8 @@ class FCOSOutputs(nn.Module):
             reg_loss = self.loc_loss_func(
                 instances.reg_pred,
                 instances.reg_targets,
-                # ctrness_targets
-            ) / num_pos_avg
+                ctrness_targets
+            ) / loss_denorm
 
             ctrness_loss = F.binary_cross_entropy_with_logits(
                 instances.ctrness_pred,
@@ -363,11 +518,11 @@ class FCOSOutputs(nn.Module):
         losses = {
             "loss_fcos_cls": class_loss,
             "loss_fcos_loc": reg_loss,
-            # "loss_fcos_ctr": ctrness_loss
+            "loss_fcos_ctr": ctrness_loss
         }
         extras = {
             "instances": instances,
-            "loss_denorm": num_pos_avg
+            "loss_denorm": loss_denorm
         }
         return extras, losses
 
@@ -443,13 +598,13 @@ class FCOSOutputs(nn.Module):
         # if self.thresh_with_ctr is True, we multiply the classification
         # scores with centerness scores before applying the threshold.
         if self.thresh_with_ctr:
-            logits_pred = logits_pred # * ctrness_pred[:, :, None]
+            logits_pred = logits_pred * ctrness_pred[:, :, None]
         candidate_inds = logits_pred > self.pre_nms_thresh
         pre_nms_top_n = candidate_inds.view(N, -1).sum(1)
         pre_nms_top_n = pre_nms_top_n.clamp(max=self.pre_nms_topk)
 
         if not self.thresh_with_ctr:
-            logits_pred = logits_pred # * ctrness_pred[:, :, None]
+            logits_pred = logits_pred * ctrness_pred[:, :, None]
 
         results = []
         for i in range(N):
