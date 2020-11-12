@@ -39,6 +39,7 @@ class CondInst(nn.Module):
         self.mask_branch = build_mask_branch(cfg, self.backbone.output_shape())
         self.mask_out_stride = cfg.MODEL.CONDINST.MASK_OUT_STRIDE
         self.max_proposals = cfg.MODEL.CONDINST.MAX_PROPOSALS
+        self.max_proposals_per_im = cfg.MODEL.CONDINST.MAX_PROPOSALS_PER_IM
 
         # build top module
         in_channels = self.proposal_generator.in_channels_to_top_module
@@ -102,7 +103,7 @@ class CondInst(nn.Module):
 
             return processed_results
 
-    def _forward_mask_heads_train(self, proposals, mask_feats, gt_instances):
+    def _forward_mask_heads_train_orig(self, proposals, mask_feats, gt_instances):
         # prepare the inputs for mask heads
         pred_instances = proposals["instances"]
 
@@ -112,6 +113,43 @@ class CondInst(nn.Module):
                 len(pred_instances), self.max_proposals
             ))
             pred_instances = pred_instances[inds[:self.max_proposals]]
+
+        pred_instances.mask_head_params = pred_instances.top_feats
+
+        loss_mask = self.mask_head(
+            mask_feats, self.mask_branch.out_stride,
+            pred_instances, gt_instances
+        )
+
+        return loss_mask
+
+    def _forward_mask_heads_train(self, proposals, mask_feats, gt_instances):
+        # prepare the inputs for mask heads
+        pred_instances = proposals["instances"]
+        num_images = len(gt_instances)
+        kept_instances = []
+
+        for im_id in range(num_images):
+            instances_per_im = pred_instances[pred_instances.im_inds == im_id]
+            if len(instances_per_im) == 0:
+                kept_instances.append(instances_per_im)
+                continue
+
+            unique_gt_inds = instances_per_im.gt_inds.unique()
+
+            num_instances_per_gt = max(int(self.max_proposals_per_im / len(unique_gt_inds)), 1)
+
+            for gt_ind in unique_gt_inds:
+                instances_per_gt = instances_per_im[instances_per_im.gt_inds == gt_ind]
+                if len(instances_per_gt) > num_instances_per_gt:
+                    scores = instances_per_gt.logits_pred.sigmoid().max(dim=1)[0]
+                    ctrness_pred = instances_per_gt.ctrness_pred.sigmoid()
+                    inds = (scores * ctrness_pred).topk(k=num_instances_per_gt, dim=0)[1]
+                    instances_per_gt = instances_per_gt[inds]
+
+                kept_instances.append(instances_per_gt)
+
+        pred_instances = Instances.cat(kept_instances)
 
         pred_instances.mask_head_params = pred_instances.top_feats
 
