@@ -43,6 +43,7 @@ class CondInst(nn.Module):
         self.mask_branch = build_mask_branch(cfg, self.backbone.output_shape())
         self.mask_out_stride = cfg.MODEL.CONDINST.MASK_OUT_STRIDE
         self.max_proposals = cfg.MODEL.CONDINST.MAX_PROPOSALS
+        self.max_proposals_per_im = cfg.MODEL.CONDINST.MAX_PROPOSALS_PER_IM
 
         # Panoptic: options when combining instance & semantic outputs
         self.combine_on = cfg.MODEL.PANOPTIC_FPN.COMBINE.ENABLED
@@ -146,7 +147,7 @@ class CondInst(nn.Module):
 
             return processed_results
 
-    def _forward_mask_heads_train(self, proposals, mask_feats, gt_instances):
+    def _forward_mask_heads_train_orig(self, proposals, mask_feats, gt_instances):
         # prepare the inputs for mask heads
         pred_instances = proposals["instances"]
 
@@ -166,7 +167,7 @@ class CondInst(nn.Module):
 
         return loss_mask
 
-    def _forward_mask_heads_train_new(self, proposals, mask_feats, gt_instances):
+    def _forward_mask_heads_train(self, proposals, mask_feats, gt_instances):
         # prepare the inputs for mask heads
         pred_instances = proposals["instances"]
         num_images = len(gt_instances)

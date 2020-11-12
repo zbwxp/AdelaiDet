@@ -13,6 +13,7 @@ MODEL:
     THRESH_WITH_CTR: True
     USE_SCALE: True
   CONDINST:
+    MAX_PROPOSALS_PER_IM: 64
     MAX_PROPOSALS: 500
     MASK_BRANCH:
       SEMANTIC_LOSS_ON: True # adjustments original is False

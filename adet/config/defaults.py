@@ -222,6 +222,8 @@ _C.MODEL.CONDINST.MASK_BRANCH.NORM = "BN"
 _C.MODEL.CONDINST.MASK_BRANCH.NUM_CONVS = 4
 _C.MODEL.CONDINST.MASK_BRANCH.SEMANTIC_LOSS_ON = False
 
+_C.MODEL.CONDINST.MAX_PROPOSALS_PER_IM = 64
+
 # ---------------------------------------------------------------------------- #
 # TOP Module Options
 # ---------------------------------------------------------------------------- #
