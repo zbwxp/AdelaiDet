@@ -4,8 +4,10 @@ from detectron2.data.datasets.register_coco import register_coco_instances, regi
 from detectron2.data.datasets.builtin_meta import _get_builtin_metadata
 
 from .datasets.text import register_text_instances
-from detectron2.data.datasets.builtin import _PREDEFINED_SPLITS_COCO
+from detectron2.data.datasets.builtin import _PREDEFINED_SPLITS_COCO, _RAW_CITYSCAPES_SPLITS
 from detectron2.data import DatasetCatalog, MetadataCatalog
+from detectron2.data.datasets.cityscapes import load_cityscapes_instances, load_cityscapes_semantic
+
 
 # register plane reconstruction
 
@@ -37,6 +39,7 @@ _PREDEFINED_SPLITS_COCO["coco"] = {
     "coco_2017_train_xxxxxxxxxxxxxxxxxxxxxxxxx": ("coco/train2017", "coco/annotations/instances_train2017_xxx.json"),
 
 }
+
 
 
 def register_all_coco(root="datasets"):
@@ -83,4 +86,34 @@ def register_all_coco(root="datasets"):
         instances_json,
     )
 
+
+def register_all_cityscapes(root="datasets"):
+    for key, (image_dir, gt_dir) in _RAW_CITYSCAPES_SPLITS.items():
+        meta = _get_builtin_metadata("cityscapes")
+        image_dir = os.path.join(root, image_dir)
+        gt_dir = os.path.join(root, gt_dir)
+
+        # implement the 'panoptic_seg' key
+        pano_key = key.format(task="panoptic_seg")
+        DatasetCatalog.register(
+            pano_key,
+            lambda x=image_dir, y=gt_dir: load_cityscapes_panoptic(
+                x, y, from_json=True, to_polygons=True
+            ),
+        )
+        MetadataCatalog.get(pano_key).set(
+            image_dir=image_dir, gt_dir=gt_dir, evaluator_type="cityscapes_instance", **meta
+        )
+
+def load_cityscapes_panoptic(image_dir, gt_dir, from_json=True, to_polygons=True):
+    ret_instances = load_cityscapes_instances(image_dir, gt_dir, from_json, to_polygons)
+    ret_semantic = load_cityscapes_semantic(image_dir,gt_dir)
+
+    for ret_i, ret_s in zip(ret_instances, ret_semantic):
+        assert ret_i['file_name'] == ret_s['file_name'], f"image for instance and sem doesn't match!"
+        ret_i["sem_seg_file_name"] = ret_s["sem_seg_file_name"]
+
+    return ret_instances
+
 register_all_coco()
+register_all_cityscapes()

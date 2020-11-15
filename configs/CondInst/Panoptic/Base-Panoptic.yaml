@@ -15,4 +15,4 @@ DATASETS:
   TRAIN: ("coco_2017_train_pano_instance_panoptic_separated",) # ("coco_2017_trainxxx_panoptic_separated",)
   TEST: ("coco_2017_val_panoptic_separated",)
 INPUT:
-  MASK_FORMAT: "bitmask"  # alternative: "bitmask"
+  MASK_FORMAT: "bitmask"  # default: "polygon" use bitmask for pano instance
