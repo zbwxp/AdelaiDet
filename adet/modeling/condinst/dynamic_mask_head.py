@@ -2,7 +2,8 @@ import torch
 from torch.nn import functional as F
 from torch import nn
 
-from adet.utils.comm import compute_locations, aligned_bilinear
+from adet.utils.comm import compute_locations, aligned_bilinear, reduce_sum
+from detectron2.utils.comm import get_world_size
 
 
 def dice_coefficient(x, target):
@@ -77,6 +78,11 @@ class DynamicMaskHead(nn.Module):
 
         weight_nums, bias_nums = [], []
         for l in range(self.num_layers):
+            if self.num_layers == 1:
+                weight_nums.append((self.in_channels + 2) * 1)
+                bias_nums.append(1)
+                break
+
             if l == 0:
                 if not self.disable_rel_coords:
                     weight_nums.append((self.in_channels + 2) * self.channels)
@@ -172,7 +178,13 @@ class DynamicMaskHead(nn.Module):
                     mask_feats, mask_feat_stride, pred_instances
                 )
                 mask_losses = dice_coefficient(mask_scores, gt_bitmasks)
-                loss_mask = mask_losses.mean()
+
+                num_loss_local = mask_losses.numel()
+                num_gpus = get_world_size()
+                total_num_loss = reduce_sum(mask_losses.new_tensor([num_loss_local])).item()
+                num_loss_avg = max(total_num_loss / num_gpus, 1.0)
+
+                loss_mask = mask_losses.sum()/num_loss_avg
 
             return loss_mask.float()
         else:

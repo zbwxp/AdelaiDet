@@ -107,6 +107,7 @@ class CondInst(nn.Module):
             losses = {}
             losses.update(sem_losses)
             losses.update(proposal_losses)
+
             losses.update({"loss_mask": loss_mask})
             if self.combine_on:
                 losses.update(sem_seg_losses)

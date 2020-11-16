@@ -16,7 +16,7 @@ MODEL:
     MAX_PROPOSALS_PER_IM: 64
     MAX_PROPOSALS: 500
     MASK_BRANCH:
-      SEMANTIC_LOSS_ON: True # adjustments original is False
+      SEMANTIC_LOSS_ON: False # adjustments original is False
   PANOPTIC_FPN:
     COMBINE:
       ENABLED: False
@@ -25,11 +25,11 @@ DATASETS:
   TRAIN: ("coco_2017_train",)
   TEST: ("coco_2017_val",)
 SOLVER:
-  IMS_PER_BATCH: 2
+  IMS_PER_BATCH: 16
   BASE_LR: 0.01
   STEPS: (60000, 80000)
   MAX_ITER: 90000
 INPUT:
   MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
-DATALOADER:
-  NUM_WORKERS: 0
+#DATALOADER:
+#  NUM_WORKERS: 0
