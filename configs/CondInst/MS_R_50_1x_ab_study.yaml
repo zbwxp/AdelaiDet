@@ -5,6 +5,12 @@ MODEL:
     DEPTH: 50
   CONDINST:
     MASK_HEAD:
-      NUM_LAYERS: 1 #(AKA:'depth', default = 3)
-      CHANNELS: 8  #(AKA:'width', default = 8)
+      NUM_LAYERS: 3 #(AKA:'depth', default = 3   1,2,3,4 Table 1(a))
+      CHANNELS: 8  #(AKA:'width', default = 8   2,4,8,16 Table 1(b))
+      DISABLE_REL_COORDS: False  #(controls rel.coord default = False)
+      USE_ABS_COORDS: False  #(overwrite rel_coords and use abs_coords instead, default = False)
+    MASK_BRANCH:
+      OUT_CHANNELS: 8 #(AKA:'C_mask', default = 8   1,2,4,8,16 Table 2. if==0 use no F_mask)
+    MASK_OUT_STRIDE: 4 #(regress resolution, default = 4, 8,4,2 Table 4)
+
 OUTPUT_DIR: "output/condinst_MS_R_50_1x"

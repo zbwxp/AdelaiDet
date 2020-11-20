@@ -14,7 +14,7 @@ INPUT:
   MASK_FORMAT: "polygon"
 DATASETS:
   TRAIN: ("cityscapes_fine_panoptic_seg_train",)
-  TEST: ("cityscapes_fine_sem_seg_val",)
+  TEST: ("cityscapes_fine_panoptic_seg_val",)
 SOLVER:
   BASE_LR: 0.01
   STEPS: (18000,)

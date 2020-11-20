@@ -11,6 +11,9 @@ MODEL:
       ENABLED: True
       INSTANCES_CONFIDENCE_THRESH: 0.45
       OVERLAP_THRESH: 0.4
+  CONDINST:
+    MASK_BRANCH:
+      SEMANTIC_LOSS_ON: True # true for panoptic
 DATASETS:
   TRAIN: ("coco_2017_train_pano_instance_panoptic_separated",) # ("coco_2017_trainxxx_panoptic_separated",)
   TEST: ("coco_2017_val_panoptic_separated",)

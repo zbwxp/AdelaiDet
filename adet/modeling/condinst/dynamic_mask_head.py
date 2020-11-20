@@ -16,6 +16,7 @@ def dice_coefficient(x, target):
     loss = 1. - (2 * intersection / union)
     return loss
 
+
 def dice_coefficient_new(x, target):
     eps = 1e-5
     n_inst = x.size(0)
@@ -72,6 +73,7 @@ class DynamicMaskHead(nn.Module):
         self.in_channels = cfg.MODEL.CONDINST.MASK_BRANCH.OUT_CHANNELS
         self.mask_out_stride = cfg.MODEL.CONDINST.MASK_OUT_STRIDE
         self.disable_rel_coords = cfg.MODEL.CONDINST.MASK_HEAD.DISABLE_REL_COORDS
+        self.use_abs_coords = cfg.MODEL.CONDINST.MASK_HEAD.USE_ABS_COORDS
 
         soi = cfg.MODEL.FCOS.SIZES_OF_INTEREST
         self.register_buffer("sizes_of_interest", torch.tensor(soi + [soi[-1] * 2]))
@@ -136,7 +138,10 @@ class DynamicMaskHead(nn.Module):
 
         if not self.disable_rel_coords:
             instance_locations = instances.locations
-            relative_coords = instance_locations.reshape(-1, 1, 2) - locations.reshape(1, -1, 2)
+            if not self.use_abs_coords:
+                relative_coords = instance_locations.reshape(-1, 1, 2) - locations.reshape(1, -1, 2)
+            else:
+                relative_coords = locations.reshape(1, -1, 2)
             relative_coords = relative_coords.permute(0, 2, 1).float()
             soi = self.sizes_of_interest.float()[instances.fpn_levels]
             relative_coords = relative_coords / soi.reshape(-1, 1, 1)
@@ -184,7 +189,7 @@ class DynamicMaskHead(nn.Module):
                 total_num_loss = reduce_sum(mask_losses.new_tensor([num_loss_local])).item()
                 num_loss_avg = max(total_num_loss / num_gpus, 1.0)
 
-                loss_mask = mask_losses.sum()/num_loss_avg
+                loss_mask = mask_losses.sum() / num_loss_avg
 
             return loss_mask.float()
         else:
