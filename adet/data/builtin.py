@@ -60,7 +60,7 @@ def register_all_coco(root="datasets"):
             os.path.join(root, image_root),
         )
 
-
+    # register new train json
     register_coco_instances(
         "coco_2017_train_pano_instance",
         _get_builtin_metadata("coco"),
@@ -84,6 +84,17 @@ def register_all_coco(root="datasets"):
         os.path.join(root, panoptic_json),
         os.path.join(root, semantic_root),
         instances_json,
+    )
+
+    # register test-dev panoptic
+    register_coco_panoptic_separated(
+        "coco_2017_test-dev_panoptic",
+        _get_builtin_metadata("coco_panoptic_separated"),
+        "datasets/coco/test2017",
+        "datasets/coco/annotations/panoptic_val2017_100",
+        'datasets/coco/annotations/panoptic_val2017_100.json',
+        'datasets/coco/panoptic_stuff_val2017_100',
+        "datasets/coco/annotations/image_info_test-dev2017.json"
     )
 
 

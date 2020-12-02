@@ -34,6 +34,9 @@ from detectron2.evaluation import (
     SemSegEvaluator,
     verify_results,
 )
+from adet.evaluation.panoptic_evaluation import COCOPanopticEvaluator_test
+from adet.evaluation.cityscapes_evaluation import CityscapesInstanceEvaluator
+
 from detectron2.modeling import GeneralizedRCNNWithTTA
 from detectron2.utils.logger import setup_logger
 
@@ -139,6 +142,13 @@ class Trainer(DefaultTrainer):
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
         evaluator_list = []
         evaluator_type = MetadataCatalog.get(dataset_name).evaluator_type
+        # if is a panoptic model, use panoptic evaluator
+        if cfg.MODEL.PANOPTIC_FPN.COMBINE.ENABLED and dataset_name == 'coco_2017_test-dev':
+            evaluator_type = "coco_panoptic_seg_test"
+
+        # if dataset_name == "coco_2017_val_100_panoptic_separated":
+        #     evaluator_type = "coco_panoptic_seg_test"
+
         if evaluator_type in ["sem_seg", "coco_panoptic_seg"]:
             evaluator_list.append(
                 SemSegEvaluator(
@@ -153,14 +163,16 @@ class Trainer(DefaultTrainer):
             evaluator_list.append(COCOEvaluator(dataset_name, cfg, True, output_folder))
         if evaluator_type == "coco_panoptic_seg":
             evaluator_list.append(COCOPanopticEvaluator(dataset_name, output_folder))
+        if evaluator_type == "coco_panoptic_seg_test":
+            evaluator_list.append(COCOPanopticEvaluator_test(dataset_name, output_folder))
         if evaluator_type == "pascal_voc":
             return PascalVOCDetectionEvaluator(dataset_name)
         if evaluator_type == "lvis":
             return LVISEvaluator(dataset_name, cfg, True, output_folder)
         if evaluator_type == "text":
             return TextEvaluator(dataset_name, cfg, True, output_folder)
-        if evaluator_type in ["cityscapes", "cityscapes_sem_seg", "cityscapes_instance_seg", "cityscapes_panoptic_seg"]:
-            print()
+        if evaluator_type in ["cityscapes", "cityscapes_sem", "cityscapes_instance", "cityscapes_panoptic"]:
+            return CityscapesInstanceEvaluator(dataset_name)
             pass
         if len(evaluator_list) == 0:
             raise NotImplementedError(
