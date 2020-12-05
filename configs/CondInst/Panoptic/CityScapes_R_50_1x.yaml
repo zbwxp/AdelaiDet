@@ -3,6 +3,8 @@ MODEL:
   WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
   RESNETS:
     DEPTH: 50
+  SEM_SEG_HEAD:
+    NUM_CLASSES: 19
 OUTPUT_DIR: "output/panoptic/CondInst/R_50_1x"
 INPUT:
   MIN_SIZE_TRAIN: (800, 832, 864, 896, 928, 960, 992, 1024)
@@ -17,9 +19,9 @@ DATASETS:
   TEST: ("cityscapes_fine_panoptic_seg_val",)
 SOLVER:
   BASE_LR: 0.01
-  STEPS: (18000,)
-  MAX_ITER: 24000
-  IMS_PER_BATCH: 1
+  STEPS: (40000, 55000)
+  MAX_ITER: 65000
+  IMS_PER_BATCH: 32
 
 #  CHECKPOINT_PERIOD: 200
 

@@ -9,6 +9,7 @@ from detectron2.structures import ImageList
 from detectron2.modeling.proposal_generator import build_proposal_generator
 from detectron2.modeling.postprocessing import detector_postprocess, sem_seg_postprocess
 from detectron2.modeling.meta_arch.panoptic_fpn import combine_semantic_and_instance_outputs
+from adet.evaluation.cityscapes_evaluation import combine_semantic_and_instance_outputs_cityscapes
 
 from detectron2.modeling.backbone import build_backbone
 from detectron2.modeling.meta_arch.build import META_ARCH_REGISTRY
@@ -44,6 +45,10 @@ class CondInst(nn.Module):
         self.mask_out_stride = cfg.MODEL.CONDINST.MASK_OUT_STRIDE
         self.max_proposals = cfg.MODEL.CONDINST.MAX_PROPOSALS
         self.max_proposals_per_im = cfg.MODEL.CONDINST.MAX_PROPOSALS_PER_IM
+
+        name = cfg.DATASETS.TRAIN
+        self.dataset_name = name[0].split('_')[0]
+
 
         # Panoptic: options when combining instance & semantic outputs
         self.combine_on = cfg.MODEL.PANOPTIC_FPN.COMBINE.ENABLED
@@ -86,6 +91,10 @@ class CondInst(nn.Module):
             else:
                 gt_sem = None
             sem_seg_results, sem_seg_losses = self.panoptic_module(features, gt_sem)
+
+            if self.dataset_name == 'cityscapes' and not self.training:
+                # discard all thing classes
+                sem_seg_results[:, 11:, :, :] = -20.0
 
         # Panoptic end
 
@@ -138,12 +147,22 @@ class CondInst(nn.Module):
                 if self.combine_on:
                     if len(instances_per_im) == 0:
                         instances_per_im.pred_masks = instances_per_im.pred_classes.view(-1,instances_per_im.image_size[0],instances_per_im.image_size[1])
-                    panoptic_r = combine_semantic_and_instance_outputs(
-                        instances_per_im,
-                        sem_seg_r.argmax(dim=0),
-                        self.combine_overlap_threshold,
-                        self.combine_stuff_area_limit,
-                        self.combine_instances_confidence_threshold)
+
+                    if self.dataset_name == 'cityscapes':
+                        panoptic_r = combine_semantic_and_instance_outputs_cityscapes(
+                            instances_per_im,
+                            sem_seg_r.argmax(dim=0),
+                            self.combine_overlap_threshold,
+                            self.combine_stuff_area_limit,
+                            self.combine_instances_confidence_threshold)
+                    else:
+                        panoptic_r = combine_semantic_and_instance_outputs(
+                            instances_per_im,
+                            sem_seg_r.argmax(dim=0),
+                            self.combine_overlap_threshold,
+                            self.combine_stuff_area_limit,
+                            self.combine_instances_confidence_threshold)
+
                     processed_results[-1]["panoptic_seg"] = panoptic_r
 
             return processed_results

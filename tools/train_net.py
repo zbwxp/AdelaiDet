@@ -35,7 +35,7 @@ from detectron2.evaluation import (
     verify_results,
 )
 from adet.evaluation.panoptic_evaluation import COCOPanopticEvaluator_test
-from adet.evaluation.cityscapes_evaluation import CityscapesInstanceEvaluator
+from adet.evaluation.cityscapes_evaluation import CityscapesInstanceEvaluator, CityscapesPanopticEvaluator
 
 from detectron2.modeling import GeneralizedRCNNWithTTA
 from detectron2.utils.logger import setup_logger
@@ -172,8 +172,7 @@ class Trainer(DefaultTrainer):
         if evaluator_type == "text":
             return TextEvaluator(dataset_name, cfg, True, output_folder)
         if evaluator_type in ["cityscapes", "cityscapes_sem", "cityscapes_instance", "cityscapes_panoptic"]:
-            return CityscapesInstanceEvaluator(dataset_name)
-            pass
+            return CityscapesPanopticEvaluator(dataset_name, output_folder)
         if len(evaluator_list) == 0:
             raise NotImplementedError(
                 "no Evaluator for the dataset {} with the type {}".format(
