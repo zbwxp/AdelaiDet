@@ -1,12 +1,12 @@
 _BASE_: "../Base-CondInst.yaml"
 MODEL:
   RESNETS:
-    OUT_FEATURES: ["res2", "res3", "res4", "res5"]  # ["res3", "res4", "res5"]          #
+    OUT_FEATURES: ["res3", "res4", "res5"]          # ["res2", "res3", "res4", "res5"]  #
   FPN:
-    IN_FEATURES:  ["res2", "res3", "res4", "res5"]  # ["res3", "res4", "res5"]          #
+    IN_FEATURES:  ["res3", "res4", "res5"]          # ["res2", "res3", "res4", "res5"]  #
   SEM_SEG_HEAD:
     LOSS_WEIGHT: 0.5
-#    IN_FEATURES: ["p3", "p4", "p5"]
+    IN_FEATURES: ["p3", "p4", "p5"]
   PANOPTIC_FPN:
     COMBINE:
       ENABLED: True
@@ -17,7 +17,7 @@ MODEL:
       SEMANTIC_LOSS_ON: True # true for panoptic
 DATASETS:
   TRAIN: ("coco_2017_train_pano_instance_panoptic_separated",) # ("coco_2017_trainxxx_panoptic_separated",)
-  TEST:  ("coco_2017_val_panoptic_separated",)  # ("coco_2017_test-dev",)  #  #  # ("coco_2017_test-dev",) #
+  TEST: ("coco_2017_val_panoptic_separated",)  # ("coco_2017_test-dev",)  #  #  #
 
 INPUT:
   MASK_FORMAT: "bitmask"  # default: "polygon" use bitmask for pano instance

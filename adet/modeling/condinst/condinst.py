@@ -92,9 +92,9 @@ class CondInst(nn.Module):
                 gt_sem = None
             sem_seg_results, sem_seg_losses = self.panoptic_module(features, gt_sem)
 
-            if self.dataset_name == 'cityscapes' and not self.training:
-                # discard all thing classes
-                sem_seg_results[:, 11:, :, :] = -20.0
+            # if self.dataset_name == 'cityscapes' and not self.training:
+            #     # discard all thing classes
+            #     sem_seg_results[:, 11:, :, :] = -20.0
 
         # Panoptic end
 

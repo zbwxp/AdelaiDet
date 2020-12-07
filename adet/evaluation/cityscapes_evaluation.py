@@ -274,8 +274,8 @@ class CityscapesPanopticEvaluator(CityscapesEvaluator):
 
         results = evaluatePanoptic(gt_json, gt_folder, pred_json, pred_folder, resultsFile)
         ret = OrderedDict()
-        ret["Panoptic"] = {"ALL": results["ALL"] * 100, "Things": results["Things"] * 100, "Stuff": results["Stuff"] * 100 }
-
+        ret["Panoptic"] = {"ALL": results['ALL'] * 100, "Things": results['Things'] * 100, "Stuff": results['Stuff'] * 100 }
+        self._working_dir.cleanup()
         return ret
 
 
@@ -347,8 +347,8 @@ def combine_semantic_and_instance_outputs_cityscapes(
     semantic_labels = torch.unique(semantic_results).cpu().tolist()
     for semantic_label in semantic_labels:
         # cityscapes use all thing classes to train sem_seg.
-        # if semantic_label == 0:  # 0 is a special "thing" class
-        #     continue
+        if semantic_label > 10:  # >10 are "thing" classes
+            continue
         mask = (semantic_results == semantic_label) & (panoptic_seg == 0)
         mask_area = mask.sum().item()
         if mask_area < stuff_area_limit:
