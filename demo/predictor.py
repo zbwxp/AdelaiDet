@@ -62,6 +62,8 @@ class VisualizationDemo(object):
             self.vis_bases(predictions["bases"])
         if "panoptic_seg" in predictions:
             panoptic_seg, segments_info = predictions["panoptic_seg"]
+            for seg in segments_info:
+                seg.pop('score',None)
             vis_output = visualizer.draw_panoptic_seg_predictions(
                 panoptic_seg.to(self.cpu_device), segments_info
             )

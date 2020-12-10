@@ -1,12 +1,12 @@
 _BASE_: "../Base-CondInst.yaml"
 MODEL:
   RESNETS:
-    OUT_FEATURES: ["res3", "res4", "res5"]          # ["res2", "res3", "res4", "res5"]  #
+    OUT_FEATURES: ["res2", "res3", "res4", "res5"]  # ["res3", "res4", "res5"]          #
   FPN:
-    IN_FEATURES:  ["res3", "res4", "res5"]          # ["res2", "res3", "res4", "res5"]  #
+    IN_FEATURES:  ["res2", "res3", "res4", "res5"]  # ["res3", "res4", "res5"]          #
   SEM_SEG_HEAD:
     LOSS_WEIGHT: 0.5
-    IN_FEATURES: ["p3", "p4", "p5"]
+#    IN_FEATURES: ["p3", "p4", "p5"]
   PANOPTIC_FPN:
     COMBINE:
       ENABLED: True
