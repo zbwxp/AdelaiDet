@@ -95,6 +95,7 @@ if __name__ == "__main__":
                 if os.path.isdir(args.output):
                     assert os.path.isdir(args.output), args.output
                     out_filename = os.path.join(args.output, os.path.basename(path))
+                    out_filename = out_filename.split('.')[0] + "_pano.jpg"
                 else:
                     assert len(args.input) == 1, "Please specify a directory with args.output"
                     out_filename = args.output
