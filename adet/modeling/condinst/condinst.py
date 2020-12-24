@@ -41,7 +41,9 @@ class CondInst(nn.Module):
         self.backbone = build_backbone(cfg)
         self.proposal_generator = build_proposal_generator(cfg, self.backbone.output_shape())
         self.mask_head = build_dynamic_mask_head(cfg)
-        self.mask_branch = build_mask_branch(cfg, self.backbone.output_shape())
+        self.mask_branch_type = cfg.MODEL.CONDINST.MASK_BRANCH.TYPE
+        self.mask_branch = build_mask_branch(cfg, self.backbone.output_shape(), self.mask_branch_type)
+
         self.mask_out_stride = cfg.MODEL.CONDINST.MASK_OUT_STRIDE
         self.max_proposals = cfg.MODEL.CONDINST.MAX_PROPOSALS
         self.max_proposals_per_im = cfg.MODEL.CONDINST.MAX_PROPOSALS_PER_IM
@@ -104,11 +106,14 @@ class CondInst(nn.Module):
         else:
             gt_instances = None
 
-        mask_feats, sem_losses = self.mask_branch(features, gt_instances)
         # NOTE: proposals get purely from fcos
-        proposals, proposal_losses = self.proposal_generator(
+        proposals, top_feats, proposal_losses = self.proposal_generator(
             images, features, gt_instances, self.controller
         )
+        if self.mask_branch_type == "DR1":
+            mask_feats, sem_losses = self.mask_branch(features, gt_instances, top_feats)
+        else:
+            mask_feats, sem_losses = self.mask_branch(features, gt_instances)
 
         if self.training:
             loss_mask = self._forward_mask_heads_train(proposals, mask_feats, gt_instances)

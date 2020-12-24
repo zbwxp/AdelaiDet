@@ -5,21 +5,21 @@ import torch
 from torch import nn
 
 from fvcore.nn import sigmoid_focal_loss_jit
-from detectron2.layers import ShapeSpec
+from detectron2.layers import ShapeSpec, get_norm
 
 from adet.layers import conv_with_kaiming_uniform
 from adet.utils.comm import aligned_bilinear
-
+from .dr1conv import DR1Conv2d
 
 INF = 100000000
 
 
-def build_mask_branch(cfg, input_shape):
-    return MaskBranch(cfg, input_shape)
+def build_mask_branch(cfg, input_shape, type=None):
+    return MaskBranch(cfg, input_shape, type)
 
 
 class MaskBranch(nn.Module):
-    def __init__(self, cfg, input_shape: Dict[str, ShapeSpec]):
+    def __init__(self, cfg, input_shape: Dict[str, ShapeSpec], type=None):
         super().__init__()
         self.in_features = cfg.MODEL.CONDINST.MASK_BRANCH.IN_FEATURES
         self.sem_loss_on = cfg.MODEL.CONDINST.MASK_BRANCH.SEMANTIC_LOSS_ON
@@ -27,18 +27,36 @@ class MaskBranch(nn.Module):
         norm = cfg.MODEL.CONDINST.MASK_BRANCH.NORM
         num_convs = cfg.MODEL.CONDINST.MASK_BRANCH.NUM_CONVS
         channels = cfg.MODEL.CONDINST.MASK_BRANCH.CHANNELS
+        self.channels = channels
         self.out_stride = input_shape[self.in_features[0]].stride
+        self.type = type
 
         feature_channels = {k: v.channels for k, v in input_shape.items()}
-
         conv_block = conv_with_kaiming_uniform(norm, activation=True)
 
         self.refine = nn.ModuleList()
         for in_feature in self.in_features:
             self.refine.append(conv_block(
                 feature_channels[in_feature],
-                channels, 3, 1
-            ))
+                channels, 3, 1))
+
+            if self.type is not None:
+                self.refine.append(
+                    DR1Conv2d(
+                        channels,
+                        channels,
+                        3,
+                        padding=1,
+                        norm=get_norm(norm, channels),
+                        activation=nn.ReLU(),
+                        stand_alone = self.type,
+                    )
+                )
+            else:
+                # baseline
+                self.refine.append(conv_block(
+                    channels,
+                    channels, 3, 1))
 
         tower = []
         for i in range(num_convs):
@@ -67,22 +85,34 @@ class MaskBranch(nn.Module):
             bias_value = -math.log((1 - prior_prob) / prior_prob)
             torch.nn.init.constant_(self.logits.bias, bias_value)
 
-    def forward(self, features, gt_instances=None):
+    def forward(self, features, gt_instances=None, tops=None):
         #NOTE: input of mask branch is p3, p4, p5 add up p4, p5 bilinear
-        for i, f in enumerate(self.in_features):
-            if i == 0:
-                x = self.refine[i](features[f])
-            else:
-                x_p = self.refine[i](features[f])
+        x = 0
+        for i, f in enumerate(self.in_features[::-1]):
+            is_DR1 = 2
 
-                target_h, target_w = x.size()[2:]
-                h, w = x_p.size()[2:]
+            x_p = self.refine[i * is_DR1](features[f])
+
+            if i > 0:
+                target_h, target_w = x_p.size()[2:]
+                h, w = x.size()[2:]
                 assert target_h % h == 0
                 assert target_w % w == 0
                 factor_h, factor_w = target_h // h, target_w // w
                 assert factor_h == factor_w
-                x_p = aligned_bilinear(x_p, factor_h)
-                x = x + x_p
+                x = aligned_bilinear(x, factor_h)
+            x = x + x_p
+
+            if self.type is not None:
+                if tops is None:
+                    x = self.refine[i * is_DR1 +1](x)
+                else:
+                    alpha = tops[-i-3][:,-2*self.channels:-self.channels]
+                    gamma = tops[-i-3][:,-self.channels:]
+                    x = self.refine[i * is_DR1 + 1](x, alpha, gamma)
+            else:
+                x = self.refine[i * is_DR1 + 1](x)
+
 
         mask_feats = self.tower(x)
 

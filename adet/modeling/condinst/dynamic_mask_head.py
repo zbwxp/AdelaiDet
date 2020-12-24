@@ -74,6 +74,8 @@ class DynamicMaskHead(nn.Module):
         self.mask_out_stride = cfg.MODEL.CONDINST.MASK_OUT_STRIDE
         self.disable_rel_coords = cfg.MODEL.CONDINST.MASK_HEAD.DISABLE_REL_COORDS
         self.use_abs_coords = cfg.MODEL.CONDINST.MASK_HEAD.USE_ABS_COORDS
+        self.mask_branch_type = cfg.MODEL.CONDINST.MASK_BRANCH.TYPE
+
 
         soi = cfg.MODEL.FCOS.SIZES_OF_INTEREST
         self.register_buffer("sizes_of_interest", torch.tensor(soi + [soi[-1] * 2]))
@@ -101,6 +103,9 @@ class DynamicMaskHead(nn.Module):
         self.weight_nums = weight_nums
         self.bias_nums = bias_nums
         self.num_gen_params = sum(weight_nums) + sum(bias_nums)
+        if self.mask_branch_type == 'DR1':
+            channels = cfg.MODEL.CONDINST.MASK_BRANCH.CHANNELS
+            self.num_gen_params += 2 * channels
 
     def mask_heads_forward(self, features, weights, biases, num_insts):
         '''
@@ -155,8 +160,9 @@ class DynamicMaskHead(nn.Module):
 
         mask_head_inputs = mask_head_inputs.reshape(1, -1, H, W)
 
+
         weights, biases = parse_dynamic_params(
-            mask_head_params, self.channels,
+            mask_head_params[:,: sum(self.weight_nums)+sum(self.bias_nums)], self.channels,
             self.weight_nums, self.bias_nums
         )
 

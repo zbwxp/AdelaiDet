@@ -1,0 +1,12 @@
+_BASE_: "Base-CondInst.yaml"
+MODEL:
+  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
+  RESNETS:
+    DEPTH: 50
+
+  CONDINST:
+    MASK_BRANCH:
+      NUM_CONVS: 0 #(default = 4 )
+      TYPE: "DR1_stand_alone"  # "DR1"  #  None   #
+
+OUTPUT_DIR: "output/condinst_MS_R_50_1x"
