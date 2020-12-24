@@ -22,7 +22,7 @@ class DR1Conv2d(nn.Conv2d):
         bias = kwargs.pop("bias", False)
         assert not bias, "Bias is not supported in DR1Conv."
         stand_alone = kwargs.pop("stand_alone", False)
-        assert stand_alone == "DR1" or stand_alone == "DR1_stand_alone", f"DR1 supports 'DR1' and 'DR1_stand_alone', '{stand_alone}' is not supported"
+        assert stand_alone == "DR1" or stand_alone == "DR1_stand_alone" or stand_alone=="No-DR1", f"DR1 supports 'DR1' and 'DR1_stand_alone' and 'No-DR1', '{stand_alone}' is not supported"
         stand_alone = True if stand_alone == "DR1_stand_alone" else False
 
         super().__init__(*args, **kwargs)

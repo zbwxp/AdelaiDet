@@ -40,7 +40,7 @@ class MaskBranch(nn.Module):
                 feature_channels[in_feature],
                 channels, 3, 1))
 
-            if self.type is not None:
+            if self.type != "No-DR1":
                 self.refine.append(
                     DR1Conv2d(
                         channels,
@@ -103,7 +103,7 @@ class MaskBranch(nn.Module):
                 x = aligned_bilinear(x, factor_h)
             x = x + x_p
 
-            if self.type is not None:
+            if self.type != "No-DR1":
                 if tops is None:
                     x = self.refine[i * is_DR1 +1](x)
                 else:

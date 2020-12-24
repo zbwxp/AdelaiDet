@@ -7,6 +7,6 @@ MODEL:
   CONDINST:
     MASK_BRANCH:
       NUM_CONVS: 0 #(default = 4 )
-      TYPE: "DR1_stand_alone"  # "DR1"  #  None   #
+      TYPE: "DR1"  #  "DR1_stand_alone"  #  "No-DR1" #
 
 OUTPUT_DIR: "output/condinst_MS_R_50_1x"
