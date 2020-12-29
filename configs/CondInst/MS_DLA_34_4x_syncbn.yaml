@@ -1,4 +1,4 @@
-_BASE_: "../Base-CondInst.yaml"
+_BASE_: "Base-CondInst.yaml"
 INPUT:
   MIN_SIZE_TRAIN: (256, 288, 320, 352, 384, 416, 448, 480, 512, 544, 576, 608)
   MAX_SIZE_TRAIN: 900

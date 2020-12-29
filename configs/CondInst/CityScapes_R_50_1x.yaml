@@ -1,0 +1,40 @@
+_BASE_: "Base-CondInst.yaml"
+MODEL:
+  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
+  RESNETS:
+    DEPTH: 50
+  SEM_SEG_HEAD:
+    NUM_CLASSES: 19
+  FCOS:
+    NUM_CLASSES: 8
+
+  CONDINST:
+    MASK_BRANCH:
+      SEMANTIC_LOSS_ON: False # adjustments original is False
+OUTPUT_DIR: "output/panoptic/CondInst/R_50_1x"
+INPUT:
+  MIN_SIZE_TRAIN: (800, 832, 864, 896, 928, 960, 992, 1024)
+  MIN_SIZE_TRAIN_SAMPLING: "choice"
+  MAX_SIZE_TRAIN: 2048
+  MIN_SIZE_TEST: 1024
+  MAX_SIZE_TEST: 2048
+
+  MASK_FORMAT: "polygon"
+DATASETS:
+  TRAIN: ("cityscapes_fine_panoptic_seg_train",)
+  TEST: ("cityscapes_fine_panoptic_seg_val",)
+SOLVER:
+  BASE_LR: 0.01
+  STEPS: (18000,)
+  MAX_ITER: 24000
+  IMS_PER_BATCH: 8
+
+
+#DATALOADER:
+#  NUM_WORKERS: 0
+
+#  CHECKPOINT_PERIOD: 200
+
+
+#TEST:
+#  EVAL_PERIOD: 8000
