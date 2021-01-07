@@ -62,3 +62,4 @@ benchmark.sh
 
 *.out
 *.json
+matches.json

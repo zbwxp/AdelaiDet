@@ -171,8 +171,11 @@ class Trainer(DefaultTrainer):
             return LVISEvaluator(dataset_name, cfg, True, output_folder)
         if evaluator_type == "text":
             return TextEvaluator(dataset_name, cfg, True, output_folder)
-        if evaluator_type in ["cityscapes", "cityscapes_sem", "cityscapes_instance", "cityscapes_panoptic"]:
+        if evaluator_type in ["cityscapes", "cityscapes_sem",
+                              "cityscapes_panoptic"]:
             return CityscapesPanopticEvaluator(dataset_name, output_folder)
+        if evaluator_type == "cityscapes_instance":
+            return CityscapesInstanceEvaluator(dataset_name, output_folder)
         if len(evaluator_list) == 0:
             raise NotImplementedError(
                 "no Evaluator for the dataset {} with the type {}".format(

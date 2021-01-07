@@ -1,0 +1,48 @@
+_BASE_: "Base-CondInst.yaml"
+MODEL:
+  WEIGHTS: "Cond_R101_dcni3_BiFPN_3x_sem.pth"
+  BACKBONE:
+    NAME: "build_fcos_resnet_bifpn_backbone"
+  BiFPN:
+    IN_FEATURES: [ "res3", "res4", "res5" ]
+    OUT_CHANNELS: 160
+    NORM: "SyncBN"
+  RESNETS:
+    DEPTH: 101
+    DEFORM_ON_PER_STAGE: [ False, True, True, True ]
+    DEFORM_MODULATED: True
+    DEFORM_INTERVAL: 3
+  FCOS:
+    NUM_CLASSES: 8
+
+  CONDINST:
+    MASK_BRANCH:
+      SEMANTIC_LOSS_ON: True # adjustments original is False
+    MASK_OUT_STRIDE: 2
+OUTPUT_DIR: "output/panoptic/CondInst/R_50_1x"
+INPUT:
+  MIN_SIZE_TRAIN: (800, 832, 864, 896, 928, 960, 992, 1024)
+  MIN_SIZE_TRAIN_SAMPLING: "choice"
+  MAX_SIZE_TRAIN: 2048
+  MIN_SIZE_TEST: 1024
+  MAX_SIZE_TEST: 2048
+
+  MASK_FORMAT: "polygon"
+DATASETS:
+  TRAIN: ("cityscapes_fine_instance_seg_train",)
+  TEST:  ("cityscapes_fine_instance_seg_test",)  # ("cityscapes_fine_panoptic_seg_val",)  #
+SOLVER:
+  BASE_LR: 0.01
+  STEPS: (18000,)
+  MAX_ITER: 24000
+  IMS_PER_BATCH: 8
+
+
+#DATALOADER:
+#  NUM_WORKERS: 0
+
+#  CHECKPOINT_PERIOD: 200
+
+
+#TEST:
+#  EVAL_PERIOD: 8000

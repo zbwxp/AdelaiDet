@@ -43,7 +43,9 @@ class CityscapesEvaluator(DatasetEvaluator):
         self._predictions = []
 
         self._working_dir = tempfile.TemporaryDirectory(prefix="cityscapes_eval_")
-        self._temp_dir = self._working_dir.name
+        # self._temp_dir = self._working_dir.name
+        self._temp_dir = self._pred_dir
+
         # All workers will write to the same results directory
         # TODO this does not work in distributed training
         self._temp_dir = comm.all_gather(self._temp_dir)[0]

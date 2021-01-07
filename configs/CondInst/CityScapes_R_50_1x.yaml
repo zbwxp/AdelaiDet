@@ -11,6 +11,7 @@ MODEL:
   CONDINST:
     MASK_BRANCH:
       SEMANTIC_LOSS_ON: False # adjustments original is False
+    MASK_OUT_STRIDE: 2
 OUTPUT_DIR: "output/panoptic/CondInst/R_50_1x"
 INPUT:
   MIN_SIZE_TRAIN: (800, 832, 864, 896, 928, 960, 992, 1024)
@@ -21,8 +22,8 @@ INPUT:
 
   MASK_FORMAT: "polygon"
 DATASETS:
-  TRAIN: ("cityscapes_fine_panoptic_seg_train",)
-  TEST: ("cityscapes_fine_panoptic_seg_val",)
+  TRAIN: ("cityscapes_fine_instance_seg_train",)
+  TEST:  ("cityscapes_fine_instance_seg_test",)  # ("cityscapes_fine_panoptic_seg_val",)  #
 SOLVER:
   BASE_LR: 0.01
   STEPS: (18000,)
