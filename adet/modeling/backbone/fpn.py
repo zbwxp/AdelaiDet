@@ -2,7 +2,9 @@ from torch import nn
 import torch.nn.functional as F
 import fvcore.nn.weight_init as weight_init
 
-from detectron2.modeling.backbone import FPN, build_resnet_backbone
+from detectron2.modeling.backbone import FPN #, build_resnet_backbone
+from .resnet import build_resnet_backbone_v1
+
 from detectron2.layers import ShapeSpec
 from detectron2.modeling.backbone.build import BACKBONE_REGISTRY
 
@@ -66,7 +68,7 @@ def build_fcos_resnet_fpn_backbone(cfg, input_shape: ShapeSpec):
     elif cfg.MODEL.MOBILENET:
         bottom_up = build_mnv2_backbone(cfg, input_shape)
     else:
-        bottom_up = build_resnet_backbone(cfg, input_shape)
+        bottom_up = build_resnet_backbone_v1(cfg, input_shape)
     in_features = cfg.MODEL.FPN.IN_FEATURES
     out_channels = cfg.MODEL.FPN.OUT_CHANNELS
     top_levels = cfg.MODEL.FCOS.TOP_LEVELS

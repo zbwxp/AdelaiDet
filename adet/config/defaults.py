@@ -11,6 +11,8 @@ _C.MODEL.RESNETS.DEFORM_INTERVAL = 1
 _C.INPUT.HFLIP_TRAIN = True
 _C.INPUT.CROP.CROP_INSTANCE = True
 
+_C.MODEL.RESNETS.DEFORM_OFFSETS_FACTOR = 1
+
 # ---------------------------------------------------------------------------- #
 # FCOS Head
 # ---------------------------------------------------------------------------- #
