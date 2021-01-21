@@ -4,15 +4,18 @@ MODEL:
   RESNETS:
     DEPTH: 50
     STRIDE_IN_1X1: False  # this is a C2 model
-    NUM_GROUPS: 64
-    WIDTH_PER_GROUP: 4
-    DEFORM_ON_PER_STAGE: [False, False, True, True] # on Res4, Res5
-    DEFORM_MODULATED: True
+#    NUM_GROUPS: 64
+#    WIDTH_PER_GROUP: 4
+#    DEFORM_ON_PER_STAGE: [False, False, True, True] # on Res4, Res5
+#    DEFORM_MODULATED: True
+#    DEFORM_INTERVAL: 3
 
-
+    DR1_ON_PER_STAGE: [False, False, False, True]
+    DR1_INCLUDE_CIN: False
+    DR1_REDUCTION: 16
 
 INPUT:
-  MIN_SIZE_TRAIN: (800,)
+  MIN_SIZE_TRAIN:  (800,)
 OUTPUT_DIR: "output/fcos/R_50_1x"
 #SOLVER:
 #  IMS_PER_BATCH: 1

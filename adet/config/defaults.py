@@ -13,6 +13,10 @@ _C.INPUT.CROP.CROP_INSTANCE = True
 
 _C.MODEL.RESNETS.DEFORM_OFFSETS_FACTOR = 1
 
+_C.MODEL.RESNETS.DR1_ON_PER_STAGE = [False, False, False, False]
+_C.MODEL.RESNETS.DR1_REDUCTION = 16  # 1 is no reduction
+_C.MODEL.RESNETS.DR1_INCLUDE_CIN = False
+
 # ---------------------------------------------------------------------------- #
 # FCOS Head
 # ---------------------------------------------------------------------------- #
