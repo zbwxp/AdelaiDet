@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from detectron2.layers import ShapeSpec, NaiveSyncBatchNorm
 from detectron2.modeling.proposal_generator.build import PROPOSAL_GENERATOR_REGISTRY
 
-from adet.layers import DFConv2d, NaiveGroupNorm
+from adet.layers import DFConv2d, NaiveGroupNorm, DR1conv, ADR1conv
 from adet.utils.comm import compute_locations
 from .fcos_outputs import FCOSOutputs
 
@@ -130,11 +130,22 @@ class FCOSHead(nn.Module):
         self.num_classes = cfg.MODEL.FCOS.NUM_CLASSES
         self.fpn_strides = cfg.MODEL.FCOS.FPN_STRIDES
         head_configs = {"cls": (cfg.MODEL.FCOS.NUM_CLS_CONVS,
-                                cfg.MODEL.FCOS.USE_DEFORMABLE),
+                                cfg.MODEL.FCOS.USE_DEFORMABLE,
+                                cfg.MODEL.FCOS.USE_DR1,
+                                cfg.MODEL.FCOS.USE_ADR1,
+                                cfg.MODEL.FCOS.USE_SE,
+                                ),
                         "bbox": (cfg.MODEL.FCOS.NUM_BOX_CONVS,
-                                 cfg.MODEL.FCOS.USE_DEFORMABLE),
+                                 cfg.MODEL.FCOS.USE_DEFORMABLE,
+                                 cfg.MODEL.FCOS.USE_DR1,
+                                 cfg.MODEL.FCOS.USE_ADR1,
+                                 cfg.MODEL.FCOS.USE_SE,
+                                 ),
                         "share": (cfg.MODEL.FCOS.NUM_SHARE_CONVS,
-                                  False)}
+                                  False,
+                                  False,
+                                  False,
+                                  False,)}
         norm = None if cfg.MODEL.FCOS.NORM == "none" else cfg.MODEL.FCOS.NORM
         self.num_levels = len(input_shape)
 
@@ -146,10 +157,14 @@ class FCOSHead(nn.Module):
 
         for head in head_configs:
             tower = []
-            num_convs, use_deformable = head_configs[head]
+            num_convs, use_deformable, use_dr1, use_adr1, use_se = head_configs[head]
             for i in range(num_convs):
                 if use_deformable and i == num_convs - 1:
                     conv_func = DFConv2d
+                elif use_dr1 and i == num_convs - 1:
+                    conv_func = DR1conv
+                elif use_adr1 and i == num_convs - 1:
+                    conv_func = ADR1conv
                 else:
                     conv_func = nn.Conv2d
                 tower.append(conv_func(
@@ -200,7 +215,8 @@ class FCOSHead(nn.Module):
             for l in modules.modules():
                 if isinstance(l, nn.Conv2d):
                     torch.nn.init.normal_(l.weight, std=0.01)
-                    torch.nn.init.constant_(l.bias, 0)
+                    if l.bias is not None:
+                        torch.nn.init.constant_(l.bias, 0)
 
         # initialize the bias for focal loss
         prior_prob = cfg.MODEL.FCOS.PRIOR_PROB

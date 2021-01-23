@@ -17,6 +17,10 @@ _C.MODEL.RESNETS.DR1_ON_PER_STAGE = [False, False, False, False]
 _C.MODEL.RESNETS.DR1_REDUCTION = 16  # 1 is no reduction
 _C.MODEL.RESNETS.DR1_INCLUDE_CIN = False
 
+
+_C.MODEL.RESNETS.SE_ON_PER_STAGE = [False, False, False, False]
+_C.MODEL.RESNETS.SE_REDUCTION = 16  # 1 is no reduction
+
 # ---------------------------------------------------------------------------- #
 # FCOS Head
 # ---------------------------------------------------------------------------- #
@@ -48,6 +52,10 @@ _C.MODEL.FCOS.LOSS_GAMMA = 2.0
 _C.MODEL.FCOS.SIZES_OF_INTEREST = [64, 128, 256, 512]
 _C.MODEL.FCOS.USE_RELU = True
 _C.MODEL.FCOS.USE_DEFORMABLE = False
+_C.MODEL.FCOS.USE_DR1 = False
+_C.MODEL.FCOS.USE_ADR1 = False
+_C.MODEL.FCOS.USE_SE = False
+
 
 # the number of convolutions used in the cls and bbox tower
 _C.MODEL.FCOS.NUM_CLS_CONVS = 4
