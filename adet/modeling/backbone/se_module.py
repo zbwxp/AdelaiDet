@@ -283,6 +283,51 @@ class ALayer_ADR1(nn.Module):
         # out = torch.nn.functional.fold(out_unf, (7, 8), (1, 1))
         return out
 
+
+class ALayer_DR1_v3(nn.Module):
+    def __init__(self, channel, stride,reduction=16):
+        super(ALayer_DR1_v3, self).__init__()
+        self.se_a = nn.Sequential(nn.Conv2d(channel, channel//reduction, kernel_size=3, padding=1, stride=stride, bias=False),
+                                  nn.ReLU(inplace=True),
+                                  nn.Conv2d(channel//reduction, 9*channel, kernel_size=3, padding=1, stride=1, bias=False),
+                                  nn.Sigmoid())
+        self.stride = stride
+        self.channels = channel
+        # self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        # self.fc = nn.Sequential(
+        #     nn.Linear(channel, channel // reduction, bias=False),
+        #     nn.ReLU(inplace=True),
+        #     nn.Linear(channel // reduction, channel, bias=False),
+        #     nn.Sigmoid()
+        # )
+        print("A_Layer_DR1_v3, reduction=", reduction)
+
+    def forward(self, x, weight):
+        b, c, h, w = x.size()
+        # y = self.avg_pool(x).view(b, c)
+        # y = self.fc(y).view(b, c, 1, 1)
+
+
+        A = self.se_a(x)
+        # fold preparations
+        fold_params = dict(kernel_size=(3, 3), dilation=1, padding=1, stride=self.stride)
+        unfold = nn.Unfold(**fold_params)
+        # fold = nn.Fold(x.size()[2:], **fold_params)
+        # apply A to x_out
+        out_unfold = unfold(x)
+        # HxW to x
+        out_unfold = out_unfold * A.flatten(2, -1)
+        weight = weight.flatten(1, -1)
+        conv_result = out_unfold.transpose(1, 2).matmul(weight.view(weight.size(0), -1).t()).transpose(1, 2)
+        out = conv_result.view(b, c, h//self.stride, w//self.stride)
+
+        # inp = torch.randn(128, 32, 8, 8)
+        # w = torch.randn(72, 32, 3, 3)
+        # inp_unf = unfold(inp)
+        # out_unf = inp_unf.transpose(1, 2).matmul(w.view(w.size(0), -1).t()).transpose(1, 2)
+        # out = torch.nn.functional.fold(out_unf, (7, 8), (1, 1))
+        return out
+
 class ALayer_A_v2_2(nn.Module):
     def __init__(self, channel, stride, reduction=16):
         super(ALayer_A_v2_2, self).__init__()

@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from detectron2.layers import ShapeSpec, NaiveSyncBatchNorm
 from detectron2.modeling.proposal_generator.build import PROPOSAL_GENERATOR_REGISTRY
 
-from adet.layers import DFConv2d, NaiveGroupNorm, DR1conv, ADR1conv
+from adet.layers import DFConv2d, NaiveGroupNorm, DR1conv, ADR1conv, DR1_v3conv
 from adet.utils.comm import compute_locations
 from .fcos_outputs import FCOSOutputs
 
@@ -134,14 +134,17 @@ class FCOSHead(nn.Module):
                                 cfg.MODEL.FCOS.USE_DR1,
                                 cfg.MODEL.FCOS.USE_ADR1,
                                 cfg.MODEL.FCOS.USE_SE,
+                                cfg.MODEL.FCOS.USE_DR1_v3,
                                 ),
                         "bbox": (cfg.MODEL.FCOS.NUM_BOX_CONVS,
                                  cfg.MODEL.FCOS.USE_DEFORMABLE,
                                  cfg.MODEL.FCOS.USE_DR1,
                                  cfg.MODEL.FCOS.USE_ADR1,
                                  cfg.MODEL.FCOS.USE_SE,
+                                 cfg.MODEL.FCOS.USE_DR1_v3,
                                  ),
                         "share": (cfg.MODEL.FCOS.NUM_SHARE_CONVS,
+                                  False,
                                   False,
                                   False,
                                   False,
@@ -157,7 +160,7 @@ class FCOSHead(nn.Module):
 
         for head in head_configs:
             tower = []
-            num_convs, use_deformable, use_dr1, use_adr1, use_se = head_configs[head]
+            num_convs, use_deformable, use_dr1, use_adr1, use_se, use_dr1_v3 = head_configs[head]
             for i in range(num_convs):
                 if use_deformable and i == num_convs - 1:
                     conv_func = DFConv2d
@@ -165,6 +168,8 @@ class FCOSHead(nn.Module):
                     conv_func = DR1conv
                 elif use_adr1 and i == num_convs - 1:
                     conv_func = ADR1conv
+                elif use_dr1_v3 and i == num_convs - 1:
+                    conv_func = DR1_v3conv
                 else:
                     conv_func = nn.Conv2d
                 tower.append(conv_func(

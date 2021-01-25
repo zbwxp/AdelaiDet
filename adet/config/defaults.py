@@ -55,7 +55,7 @@ _C.MODEL.FCOS.USE_DEFORMABLE = False
 _C.MODEL.FCOS.USE_DR1 = False
 _C.MODEL.FCOS.USE_ADR1 = False
 _C.MODEL.FCOS.USE_SE = False
-
+_C.MODEL.FCOS.USE_DR1_v3 = False
 
 # the number of convolutions used in the cls and bbox tower
 _C.MODEL.FCOS.NUM_CLS_CONVS = 4
