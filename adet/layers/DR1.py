@@ -145,6 +145,7 @@ class DR1_v3conv(nn.Module):
             padding=padding,
             groups=1,
             dilation=dilation,
+            bias=False
         )
         # weight_init.c2_msra_fill(self.conv)
 
@@ -161,4 +162,54 @@ class DR1_v3conv(nn.Module):
     def forward(self, x):
         out = self.se_a(x, self.conv.weight)
         out = self.se_b(x, out)
+        return out
+
+class SEconv(nn.Module):
+    """
+    Deformable convolutional layer with configurable
+    deformable groups, dilations and groups.
+
+    Code is from:
+    https://github.com/facebookresearch/maskrcnn-benchmark/blob/master/maskrcnn_benchmark/layers/misc.py
+
+
+    """
+
+    def __init__(
+            self,
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=1,
+            groups=1,
+            dilation=1,
+            bias=False,
+            padding=None
+    ):
+        super(SEconv, self).__init__()
+        self.conv = Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            groups=1,
+            dilation=dilation,
+            bias=False
+        )
+        # weight_init.c2_msra_fill(self.conv)
+
+        # self.se_a = ALayer_DR1_v3(in_channels, stride, reduction=16)
+        # for m in self.se_a.se_a:
+        #     if isinstance(m, nn.Conv2d):
+        #         weight_init.c2_msra_fill(m)
+        #     elif isinstance(m, nn.BatchNorm2d):
+        #         m.weight.data.fill_(1)
+        #         m.bias.data.zero_()
+        self.se_b = SEBLayer(in_channels, reduction=16)
+
+
+    def forward(self, x):
+        # out = self.se_a(x, self.conv.weight)
+        out = self.se_b(x, x)
         return out

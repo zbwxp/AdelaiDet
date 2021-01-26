@@ -13,11 +13,11 @@ MODEL:
 #    DR1_ON_PER_STAGE: [False, False, False, True]
 #    DR1_INCLUDE_CIN: False
 #    DR1_REDUCTION: 16
-    SE_ON_PER_STAGE: [False, False, False, True]
-    SE_REDUCTION: 16
+#    SE_ON_PER_STAGE: [False, False, False, True]
+#    SE_REDUCTION: 16
 
   FCOS:
-    USE_ADR1: False
+    USE_SE: True
 
 INPUT:
   MIN_SIZE_TRAIN:  (800,)

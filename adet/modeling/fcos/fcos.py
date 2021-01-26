@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from detectron2.layers import ShapeSpec, NaiveSyncBatchNorm
 from detectron2.modeling.proposal_generator.build import PROPOSAL_GENERATOR_REGISTRY
 
-from adet.layers import DFConv2d, NaiveGroupNorm, DR1conv, ADR1conv, DR1_v3conv
+from adet.layers import DFConv2d, NaiveGroupNorm, DR1conv, ADR1conv, DR1_v3conv, SEconv
 from adet.utils.comm import compute_locations
 from .fcos_outputs import FCOSOutputs
 
@@ -170,6 +170,9 @@ class FCOSHead(nn.Module):
                     conv_func = ADR1conv
                 elif use_dr1_v3 and i == num_convs - 1:
                     conv_func = DR1_v3conv
+
+                elif use_se and i == num_convs - 1:
+                    conv_func = SEconv
                 else:
                     conv_func = nn.Conv2d
                 tower.append(conv_func(
