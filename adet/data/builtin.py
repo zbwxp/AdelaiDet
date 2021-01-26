@@ -113,7 +113,7 @@ def register_all_cityscapes(root="datasets"):
             ),
         )
         MetadataCatalog.get(pano_key).set(
-            image_dir=image_dir, gt_dir=gt_dir, evaluator_type="cityscapes_instance", **meta
+            image_dir=image_dir, gt_dir=gt_dir, evaluator_type="cityscapes_panoptic", **meta
         )
 
 def load_cityscapes_panoptic(image_dir, gt_dir, from_json=True, to_polygons=True):
