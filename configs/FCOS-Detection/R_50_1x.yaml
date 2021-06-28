@@ -1,6 +1,6 @@
 _BASE_: "Base-FCOS.yaml"
 MODEL:
-  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
+  WEIGHTS: "./pretrain/coco_pretrain.pth"
   RESNETS:
     DEPTH: 50
 INPUT:
