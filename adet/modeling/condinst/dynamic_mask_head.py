@@ -47,6 +47,50 @@ def compute_pairwise_term(mask_logits, pairwise_size, pairwise_dilation):
     # loss = -log(prob)
     return -log_same_prob[:, 0]
 
+def compute_area_term(pred_masks, instance, gt_bitmasks):
+    area_prior = torch.tensor([0.53,0.47,0.63,0.52,0.38,0.74,0.65,0.67,0.57,0.76,0.60,0.75,0.73,0.52,0.45,0.57,0.54,0.48,0.55,0.55,0.59,0.62,0.50,0.36,0.57,0.52,0.52,0.48,0.67,0.64,0.26,0.42,0.71,0.42,0.28,0.63,0.42,0.47,0.45,0.66,0.58,0.74,0.30,0.37,0.35,0.69,0.56,0.66,0.64,0.66,0.59,0.51,0.57,0.66,0.67,0.69,0.54,0.57,0.58,0.62,0.58,0.64,0.81,0.60,0.69,0.54,0.63,0.57,0.82,0.70,0.76,0.63,0.76,0.61,0.74,0.69,0.36,0.58,0.51,0.38],
+    device = pred_masks.device)
+    labels = instance.labels
+
+    priors = area_prior[labels]
+    index = gt_bitmasks.flatten(start_dim=2)
+    index = index>0
+
+    # flat_pred = pred_masks.flatten(start_dim=2)
+    masks = torch.zeros_like(gt_bitmasks)
+    targets = torch.zeros_like(gt_bitmasks)
+    
+    # iterate through all instances
+    for i in range(len(instance)):
+        pred_area = pred_masks[i][0].flatten()[index[i][0]]
+        _, indices = pred_area.sort()
+        ind_pos, ind_neg = seperate_pos_neg(indices, priors[i])
+        mask = torch.zeros(pred_area.shape, device = pred_masks.device)
+        target = torch.zeros(pred_area.shape, device = pred_masks.device)
+        mask[ind_pos] = 1.0
+        mask[ind_neg] = 1.0
+        target[ind_pos] = 1.0
+        masks[i][0].flatten()[index[i][0]] = mask
+        targets[i][0].flatten()[index[i][0]] = target
+
+    return dice_coefficient(pred_masks*masks, targets).mean()
+
+
+
+def show_image(img):
+    import matplotlib.pyplot as plt
+    plt.imshow(img.detach().cpu())
+    plt.show()
+
+def seperate_pos_neg(index, ratio):
+    uncertrain=0.05
+    length = len(index)
+    pos_factor = ratio-uncertrain
+    neg_factor = 1-ratio-uncertrain
+    pos = max(int(length * pos_factor),1)
+    neg = max(int(length * neg_factor),1)
+
+    return index[:pos], index[-neg:]
 
 def dice_coefficient(x, target):
     eps = 1e-5
@@ -110,6 +154,7 @@ class DynamicMaskHead(nn.Module):
         self.pairwise_dilation = cfg.MODEL.BOXINST.PAIRWISE.DILATION
         self.pairwise_color_thresh = cfg.MODEL.BOXINST.PAIRWISE.COLOR_THRESH
         self._warmup_iters = cfg.MODEL.BOXINST.PAIRWISE.WARMUP_ITERS
+        self.area_loss = cfg.MODEL.BOXINST.AREALOSS
 
         weight_nums, bias_nums = [], []
         for l in range(self.num_layers):
@@ -213,7 +258,10 @@ class DynamicMaskHead(nn.Module):
                     losses["loss_mask"] = dummy_loss
                 else:
                     losses["loss_prj"] = dummy_loss
-                    losses["loss_pairwise"] = dummy_loss
+                    if self.area_loss:
+                        losses["loss_area"] = dummy_loss
+                    else:
+                        losses["loss_pairwise"] = dummy_loss
             else:
                 mask_logits = self.mask_heads_forward_with_coords(
                     mask_feats, mask_feat_stride, pred_instances
@@ -226,6 +274,18 @@ class DynamicMaskHead(nn.Module):
                     image_color_similarity = image_color_similarity[gt_inds].to(dtype=mask_feats.dtype)
 
                     loss_prj_term = compute_project_term(mask_scores, gt_bitmasks)
+
+                    if self.area_loss:
+                        loss_area_term = compute_area_term(mask_scores, pred_instances, gt_bitmasks)
+                        warmup_factor = min(self._iter.item() / float(self._warmup_iters), 1.0)
+                        loss_pairwise = loss_area_term * warmup_factor
+
+                        losses.update({
+                            "loss_prj": loss_prj_term,
+                            "loss_area": loss_area_term,
+                        })
+                        
+                        return losses
 
                     pairwise_losses = compute_pairwise_term(
                         mask_logits, self.pairwise_size,

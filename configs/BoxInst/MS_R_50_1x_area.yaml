@@ -1,0 +1,8 @@
+_BASE_: "Base-BoxInst.yaml"
+MODEL:
+  WEIGHTS: "./pretrain/R-50.pkl"
+  RESNETS:
+    DEPTH: 50
+  BOXINST:
+    AREALOSS: True
+OUTPUT_DIR: "output/boxinst_MS_R_50_1x_area"
