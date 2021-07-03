@@ -1,0 +1,24 @@
+_BASE_: "Base-FCOS.yaml"
+MODEL:
+  WEIGHTS: "./pretrain/R-50.pkl"
+  RESNETS:
+    DEPTH: 50
+    NORM: "GN"
+  BACKBONE:
+    FREEZE_AT: 0
+
+INPUT:
+  MIN_SIZE_TRAIN: (800,)
+OUTPUT_DIR: "output/fcos/R_50_1x"
+
+
+
+SOLVER:
+  STEPS: (280000, 340000)
+  MAX_ITER: 360000  # 4x
+
+# DATALOADER:
+#   NUM_WORKERS: 2
+
+TEST:
+  EVAL_PERIOD: 2000
