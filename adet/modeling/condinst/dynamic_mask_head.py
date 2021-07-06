@@ -200,6 +200,7 @@ class DynamicMaskHead(nn.Module):
     def __call__(self, mask_feats, mask_feat_stride, pred_instances, gt_instances=None):
         if self.training:
             self._iter += 1
+            print("_iter:", self._iter.item())
 
             gt_inds = pred_instances.gt_inds
             gt_bitmasks = torch.cat([per_im.gt_bitmasks for per_im in gt_instances])
@@ -236,6 +237,7 @@ class DynamicMaskHead(nn.Module):
                     loss_pairwise = (pairwise_losses * weights).sum() / weights.sum().clamp(min=1.0)
 
                     warmup_factor = min(self._iter.item() / float(self._warmup_iters), 1.0)
+                    print("warmup_factor:", warmup_factor)
                     loss_pairwise = loss_pairwise * warmup_factor
 
                     losses.update({

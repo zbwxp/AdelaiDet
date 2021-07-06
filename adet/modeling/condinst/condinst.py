@@ -350,6 +350,8 @@ class CondInst(nn.Module):
         output_boxes.clip(results.image_size)
 
         results = results[output_boxes.nonempty()]
+        if len(results) == 0:
+            return results
 
         if results.has("pred_global_masks"):
             mask_h, mask_w = results.pred_global_masks.size()[-2:]
