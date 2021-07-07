@@ -17,11 +17,18 @@ from .dynamic_mask_head import build_dynamic_mask_head
 from .mask_branch import build_mask_branch
 
 from adet.utils.comm import aligned_bilinear
+import numpy as np
+
 
 __all__ = ["CondInst"]
 
 
 logger = logging.getLogger(__name__)
+
+def show_img(img):
+    import matplotlib.pyplot as plt
+    plt.imshow(img.detach().cpu())
+    plt.show()
 
 
 def unfold_wo_center(x, kernel_size, dilation):
@@ -96,6 +103,7 @@ class CondInst(nn.Module):
         self.pairwise_size = cfg.MODEL.BOXINST.PAIRWISE.SIZE
         self.pairwise_dilation = cfg.MODEL.BOXINST.PAIRWISE.DILATION
         self.pairwise_color_thresh = cfg.MODEL.BOXINST.PAIRWISE.COLOR_THRESH
+        self.point_anno = cfg.MODEL.BOXINST.POINT_ANNO
 
         # build top module
         in_channels = self.proposal_generator.in_channels_to_top_module
@@ -144,6 +152,12 @@ class CondInst(nn.Module):
                     gt_instances, original_images.tensor, original_image_masks.tensor,
                     original_images.tensor.size(-2), original_images.tensor.size(-1)
                 )
+                if self.point_anno > 0:
+                    self.add_point_annotations(
+                        gt_instances, self.point_anno, original_image_masks.tensor,
+                    original_images.tensor.size(-2), original_images.tensor.size(-1)
+                    )
+
             else:
                 self.add_bitmasks(gt_instances, images_norm.tensor.size(-2), images_norm.tensor.size(-1))
         else:
@@ -277,6 +291,75 @@ class CondInst(nn.Module):
                 bitmasks = bitmasks_full[:, start::self.mask_out_stride, start::self.mask_out_stride]
                 per_im_gt_inst.gt_bitmasks = bitmasks
                 per_im_gt_inst.gt_bitmasks_full = bitmasks_full
+
+    def add_point_annotations(self, instances, num_points, image_masks, im_h, im_w):
+        for im_i, per_im_gt_inst in enumerate(instances):
+            per_im_boxes = per_im_gt_inst.gt_boxes.tensor
+            x1, y1 = per_im_boxes[:,0], per_im_boxes[:,1]
+            w = per_im_boxes[:,2] - x1 + 1
+            h = per_im_boxes[:,3] - y1 + 1
+
+            point_coords_wrt_image = torch.rand((per_im_boxes.size(0), num_points, 2), device=per_im_boxes.device)
+            point_coords_wrt_image[:,:, 0] = point_coords_wrt_image[:,:, 0] * h[:, None]
+            point_coords_wrt_image[:,:, 1] = point_coords_wrt_image[:,:, 1] * w[:, None]
+
+            point_coords_wrt_image[:,:, 0] += y1[:, None]
+            point_coords_wrt_image[:,:, 1] += x1[:, None]
+            point_coords_wrt_image = point_coords_wrt_image.long() - 1
+            point_coords_wrt_image[point_coords_wrt_image<0] = 0
+
+            # this point_ignore is for random sample that are out of boxes due to long(), which is different from point_sup
+            point_coords_wrt_box, point_ignores = self._get_point_coords_wrt_box(point_coords_wrt_image, y1, x1, h, w)        
+            point_coords_wrt_image_ratio = point_coords_wrt_image.clone().float()
+            point_coords_wrt_image_ratio[:,:,0] = point_coords_wrt_image_ratio[:,:,0] / im_h
+            point_coords_wrt_image_ratio[:,:,1] = point_coords_wrt_image_ratio[:,:,1] / im_w
+
+            if isinstance(per_im_gt_inst.get("gt_masks"), PolygonMasks):
+                polygons = per_im_gt_inst.get("gt_masks").polygons
+                per_im_bitmasks = []
+                per_im_bitmasks_full = []
+                for per_polygons in polygons:
+                    bitmask = polygons_to_bitmask(per_polygons, im_h, im_w)
+                    bitmask = torch.from_numpy(bitmask).to(self.device).float()
+                    start = int(self.mask_out_stride // 2)
+                    bitmask_full = bitmask.clone()
+                    bitmask = bitmask[start::self.mask_out_stride, start::self.mask_out_stride]
+
+                    assert bitmask.size(0) * self.mask_out_stride == im_h
+                    assert bitmask.size(1) * self.mask_out_stride == im_w
+
+                    per_im_bitmasks.append(bitmask)
+                    per_im_bitmasks_full.append(bitmask_full)
+
+            else: # RLE format bitmask
+                assert False, "RLE format bitmasks currently not supported!"
+
+            # get gt label from bitmasks_full
+            point_labels = []
+            for coord, inst in zip(point_coords_wrt_image, per_im_bitmasks_full):
+                point_labels.append(inst[coord[:,0], coord[:,1]])
+
+            point_labels = torch.stack(point_labels)
+            point_labels[point_ignores] = -1
+
+            per_im_gt_inst.point_labels = point_labels
+            per_im_gt_inst.point_coords = point_coords_wrt_image_ratio
+
+    def _get_point_coords_wrt_box(self, point_coords_wrt_image, y1, x1, h, w):
+        coord = point_coords_wrt_image.clone().float()
+        coord[:,:,0] -= y1[:, None]
+        coord[:,:,1] -= x1[:, None]
+        coord[:,:,0] = coord[:,:,0] / h[:, None]
+        coord[:,:,1] = coord[:,:,1] / w[:, None]
+
+        point_ignores = (
+            (coord[:, :, 0] < 0)
+            | (coord[:, :, 0] > 1)
+            | (coord[:, :, 1] < 0)
+            | (coord[:, :, 1] > 1)
+        )
+
+        return coord, point_ignores
 
     def add_bitmasks_from_boxes(self, instances, images, image_masks, im_h, im_w):
         stride = self.mask_out_stride

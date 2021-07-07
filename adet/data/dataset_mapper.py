@@ -81,7 +81,8 @@ class DatasetMapperWithBasis(DatasetMapper):
         self.boxinst_enabled = cfg.MODEL.BOXINST.ENABLED
 
         if self.boxinst_enabled:
-            self.use_instance_mask = False
+            if cfg.MODEL.BOXINST.POINT_ANNO == 0:
+                self.use_instance_mask = False
             self.recompute_boxes = False
 
     def __call__(self, dataset_dict):

@@ -1,0 +1,10 @@
+_BASE_: "Base-BoxInst.yaml"
+MODEL:
+  WEIGHTS: "./pretrain/R-50.pkl" #"training_dir/trail/model_0039999.pth" 
+  RESNETS:
+    DEPTH: 50
+  BOXINST:
+    POINT_ANNO: 10
+    PAIRWISE:
+      ENABLED: True
+OUTPUT_DIR: "output/boxinst_MS_R_50_1x_point"
