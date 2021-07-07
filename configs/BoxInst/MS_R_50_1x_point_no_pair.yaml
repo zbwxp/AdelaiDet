@@ -6,5 +6,5 @@ MODEL:
   BOXINST:
     POINT_ANNO: 10
     PAIRWISE:
-      ENABLED: True
+      ENABLED: False
 OUTPUT_DIR: "output/boxinst_MS_R_50_1x_point"
