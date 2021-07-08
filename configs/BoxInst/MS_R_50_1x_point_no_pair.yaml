@@ -10,3 +10,5 @@ MODEL:
 OUTPUT_DIR: "output/boxinst_MS_R_50_1x_point_no_pair"
 DATASETS:
   TRAIN: ("coco_2017_train_points_n10_v1_without_masks",)
+TEST:
+  EVAL_PERIOD: 5000
