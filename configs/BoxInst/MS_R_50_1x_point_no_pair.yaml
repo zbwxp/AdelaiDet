@@ -1,10 +1,12 @@
 _BASE_: "Base-BoxInst.yaml"
 MODEL:
-  WEIGHTS: "./pretrain/R-50.pkl" #"training_dir/trail/model_0039999.pth" 
+  WEIGHTS: "./pretrain/R-50.pkl" 
   RESNETS:
     DEPTH: 50
   BOXINST:
     POINT_ANNO: 10
     PAIRWISE:
       ENABLED: False
-OUTPUT_DIR: "output/boxinst_MS_R_50_1x_point"
+OUTPUT_DIR: "output/boxinst_MS_R_50_1x_point_no_pair"
+DATASETS:
+  TRAIN: ("coco_2017_train_points_n10_v1_without_masks",)

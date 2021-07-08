@@ -248,14 +248,13 @@ _C.MODEL.BOXINST = CN()
 # Whether to enable BoxInst
 _C.MODEL.BOXINST.ENABLED = False
 _C.MODEL.BOXINST.BOTTOM_PIXELS_REMOVED = 10
-_C.MODEL.BOXINST.POINT_ANNO = 0
 
 _C.MODEL.BOXINST.PAIRWISE = CN()
 _C.MODEL.BOXINST.PAIRWISE.SIZE = 3
 _C.MODEL.BOXINST.PAIRWISE.DILATION = 2
 _C.MODEL.BOXINST.PAIRWISE.WARMUP_ITERS = 10000
 _C.MODEL.BOXINST.PAIRWISE.COLOR_THRESH = 0.3
-_C.MODEL.BOXINST.PAIRWISE.ENABLED = True 
+
 # ---------------------------------------------------------------------------- #
 # TOP Module Options
 # ---------------------------------------------------------------------------- #

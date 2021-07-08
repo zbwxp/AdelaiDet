@@ -153,10 +153,12 @@ class CondInst(nn.Module):
                     original_images.tensor.size(-2), original_images.tensor.size(-1)
                 )
                 if self.point_anno > 0:
-                    self.add_point_annotations(
-                        gt_instances, self.point_anno, original_image_masks.tensor,
-                    original_images.tensor.size(-2), original_images.tensor.size(-1)
-                    )
+                    self.convert_point_annotations(gt_instances,
+                    original_images.tensor.size(-2), original_images.tensor.size(-1))
+                    # self.add_point_annotations(
+                    #     gt_instances, self.point_anno, original_image_masks.tensor,
+                    # original_images.tensor.size(-2), original_images.tensor.size(-1)
+                    # )
 
             else:
                 self.add_bitmasks(gt_instances, images_norm.tensor.size(-2), images_norm.tensor.size(-1))
@@ -291,6 +293,28 @@ class CondInst(nn.Module):
                 bitmasks = bitmasks_full[:, start::self.mask_out_stride, start::self.mask_out_stride]
                 per_im_gt_inst.gt_bitmasks = bitmasks
                 per_im_gt_inst.gt_bitmasks_full = bitmasks_full
+
+    def convert_point_annotations(self, instances, im_h, im_w):
+        for per_im_gt_inst in instances:
+            # coord[:,0] is w, [:,1] is h!!!
+            gt_point_coords = per_im_gt_inst.gt_point_coords
+            coords_wrt_image = gt_point_coords.clone().float()
+            coords_wrt_image[:,:,0] = coords_wrt_image[:,:,0] / im_w
+            coords_wrt_image[:,:,1] = coords_wrt_image[:,:,1] / im_h
+            
+            # label[:,0] is h, [:,1] is w!!!
+            point_labels = per_im_gt_inst.gt_point_labels
+            point_ignores = (
+            (coords_wrt_image[:, :, 0] < 0)
+            | (coords_wrt_image[:, :, 0] > 1)
+            | (coords_wrt_image[:, :, 1] < 0)
+            | (coords_wrt_image[:, :, 1] > 1)
+            )
+
+            point_labels[point_ignores] = -1
+
+            per_im_gt_inst.point_labels = point_labels
+            per_im_gt_inst.point_coords = coords_wrt_image
 
     def add_point_annotations(self, instances, num_points, image_masks, im_h, im_w):
         for im_i, per_im_gt_inst in enumerate(instances):

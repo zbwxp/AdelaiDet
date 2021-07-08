@@ -17,6 +17,8 @@ from detectron2.structures import BoxMode
 from .augmentation import RandomCropWithInstance
 from .detection_utils import (annotations_to_instances, build_augmentation,
                               transform_instance_annotations)
+from .detection_utils_point import annotations_to_instances as point_annotations_to_instances
+from .detection_utils_point import transform_instance_annotations as transform_point_instance_annotations
 
 """
 This file contains the default mapping that's applied to "dataset dicts".
@@ -79,9 +81,10 @@ class DatasetMapperWithBasis(DatasetMapper):
         self.basis_loss_on = cfg.MODEL.BASIS_MODULE.LOSS_ON
         self.ann_set = cfg.MODEL.BASIS_MODULE.ANN_SET
         self.boxinst_enabled = cfg.MODEL.BOXINST.ENABLED
-
+        self.point_sup_enabled = cfg.MODEL.BOXINST.POINT_ANNO > 0
+        
         if self.boxinst_enabled:
-            if cfg.MODEL.BOXINST.POINT_ANNO == 0:
+            if self.point_sup_enabled:
                 self.use_instance_mask = False
             self.recompute_boxes = False
 
@@ -170,19 +173,47 @@ class DatasetMapperWithBasis(DatasetMapper):
                     anno.pop("keypoints", None)
 
             # USER: Implement additional transformations if you have other types of data
-            annos = [
-                transform_instance_annotations(
-                    obj,
-                    transforms,
+            if self.point_sup_enabled:
+                # Maps points from the closed interval [0, image_size - 1] on discrete
+                # image coordinates to the half-open interval [x1, x2) on continuous image
+                # coordinates. We use the continuous-discrete conversion from Heckbert
+                # 1990 ("What is the coordinate of a pixel?"): d = floor(c) and c = d + 0.5,
+                # where d is a discrete coordinate and c is a continuous coordinate.
+                for ann in dataset_dict["annotations"]:
+                    point_coords_wrt_image = np.array(ann["point_coords"]).astype(np.float)
+                    point_coords_wrt_image = point_coords_wrt_image + 0.5
+                    ann["point_coords"] = point_coords_wrt_image
+
+                annos = [
+                    # also need to transform point coordinates
+                    transform_point_instance_annotations(
+                        obj,
+                        transforms,
+                        image_shape,
+                    )
+                    for obj in dataset_dict.pop("annotations")
+                    if obj.get("iscrowd", 0) == 0
+                ]
+                instances = point_annotations_to_instances(
+                    annos,
                     image_shape,
-                    keypoint_hflip_indices=self.keypoint_hflip_indices,
+                    sample_points=0,  #self.sample_points
                 )
-                for obj in dataset_dict.pop("annotations")
-                if obj.get("iscrowd", 0) == 0
-            ]
-            instances = annotations_to_instances(
-                annos, image_shape, mask_format=self.instance_mask_format
-            )
+
+            else:
+                annos = [
+                    transform_instance_annotations(
+                        obj,
+                        transforms,
+                        image_shape,
+                        keypoint_hflip_indices=self.keypoint_hflip_indices,
+                    )
+                    for obj in dataset_dict.pop("annotations")
+                    if obj.get("iscrowd", 0) == 0
+                ]
+                instances = annotations_to_instances(
+                    annos, image_shape, mask_format=self.instance_mask_format
+                )
 
             # After transforms such as cropping are applied, the bounding box may no longer
             # tightly bound the object. As an example, imagine a triangle object
