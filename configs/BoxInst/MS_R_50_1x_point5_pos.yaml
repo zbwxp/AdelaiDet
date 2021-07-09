@@ -1,0 +1,17 @@
+_BASE_: "Base-BoxInst.yaml"
+MODEL:
+  WEIGHTS: "./pretrain/R-50.pkl"
+  RESNETS:
+    DEPTH: 50
+  BOXINST:
+    POINT_ANNO: 5
+    PAIRWISE:
+      ENABLED: True
+OUTPUT_DIR: "output/boxinst_MS_R_50_1x_point"
+DATASETS:
+  TRAIN: ("coco_2017_train_points_n5_v1_without_masks_5pos",)
+TEST:
+  EVAL_PERIOD: 5000
+
+# DATALOADER:
+#   NUM_WORKERS: 0

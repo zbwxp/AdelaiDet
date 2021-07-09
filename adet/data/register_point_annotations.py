@@ -47,9 +47,17 @@ _PREDEFINED_SPLITS_COCO["coco"] = {
         "coco/train2017",
         "coco/annotations/instances_train2017_n10_v1_without_masks.json",
     ),
-        "coco_2017_train_points_n5_v1_without_masks": (
+    "coco_2017_train_points_n5_v1_without_masks": (
         "coco/train2017",
         "coco/annotations/instances_train2017_n5_v1_without_masks.json",
+    ),
+    "coco_2017_train_points_n5_v1_without_masks_5pos": (
+        "coco/train2017",
+        "coco/annotations/instances_train2017_n5_v1_without_masks_5pos.json",
+    ),
+    "coco_2017_train_points_n2_v1_without_masks_pos_neg": (
+        "coco/train2017",
+        "coco/annotations/instances_train2017_n2_v1_without_masks_pos_neg.json",
     ),
 }
 
