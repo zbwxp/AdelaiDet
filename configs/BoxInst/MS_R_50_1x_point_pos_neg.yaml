@@ -4,7 +4,7 @@ MODEL:
   RESNETS:
     DEPTH: 50
   BOXINST:
-    POINT_ANNO: 5
+    POINT_ANNO: 2
     PAIRWISE:
       ENABLED: True
 OUTPUT_DIR: "output/boxinst_MS_R_50_1x_point"
