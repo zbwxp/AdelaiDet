@@ -11,7 +11,7 @@ from detectron2.data.detection_utils import read_image
 from detectron2.utils.logger import setup_logger
 
 from predictor import VisualizationDemo
-from adet.config import get_cfg
+from adet.config import get_cfg, add_point_sup_config
 
 # constants
 WINDOW_NAME = "COCO detections"
@@ -20,6 +20,7 @@ WINDOW_NAME = "COCO detections"
 def setup_cfg(args):
     # load config from file and command-line arguments
     cfg = get_cfg()
+    add_point_sup_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     # Set score_threshold for builtin models

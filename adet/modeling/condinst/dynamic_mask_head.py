@@ -207,6 +207,7 @@ class DynamicMaskHead(nn.Module):
         self._warmup_iters = cfg.MODEL.BOXINST.PAIRWISE.WARMUP_ITERS
         self.point_anno = cfg.MODEL.BOXINST.POINT_ANNO
         self.pairwise_enabled = cfg.MODEL.BOXINST.PAIRWISE.ENABLED
+        self.loss_weight = cfg.MODEL.BOXINST.LOSS_WEIGHT
 
         weight_nums, bias_nums = [], []
         for l in range(self.num_layers):
@@ -323,6 +324,7 @@ class DynamicMaskHead(nn.Module):
                     image_color_similarity = image_color_similarity[gt_inds].to(dtype=mask_feats.dtype)
 
                     loss_prj_term = compute_project_term(mask_scores, gt_bitmasks)
+                    loss_prj_term *= self.loss_weight
 
                     pairwise_losses = compute_pairwise_term(
                         mask_logits, self.pairwise_size,
@@ -334,11 +336,13 @@ class DynamicMaskHead(nn.Module):
 
                     warmup_factor = min(self._iter.item() / float(self._warmup_iters), 1.0)
                     loss_pairwise = loss_pairwise * warmup_factor
+                    loss_pairwise *= self.loss_weight
 
                     if self.point_anno > 0:
                         loss_point_term = compute_point_term(
                             mask_logits, pred_instances, gt_instances
                         )
+                        loss_point_term *= self.loss_weight
 
 
                     if self.pairwise_enabled:

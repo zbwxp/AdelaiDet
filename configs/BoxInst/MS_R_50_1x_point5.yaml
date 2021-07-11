@@ -5,8 +5,10 @@ MODEL:
     DEPTH: 50
   BOXINST:
     POINT_ANNO: 5
+    LOSS_WEIGHT: 0.6666
     PAIRWISE:
       ENABLED: True
+    
 OUTPUT_DIR: "output/boxinst_MS_R_50_1x_point"
 DATASETS:
   TRAIN: ("coco_2017_train_points_n5_v1_without_masks",)

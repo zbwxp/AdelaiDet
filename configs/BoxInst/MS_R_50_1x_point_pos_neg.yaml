@@ -5,6 +5,7 @@ MODEL:
     DEPTH: 50
   BOXINST:
     POINT_ANNO: 2
+    LOSS_WEIGHT: 0.6666
     PAIRWISE:
       ENABLED: True
 OUTPUT_DIR: "output/boxinst_MS_R_50_1x_point"

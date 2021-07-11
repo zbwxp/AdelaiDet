@@ -23,3 +23,4 @@ def add_point_sup_config(cfg):
     cfg.INPUT.SAMPLE_POINTS = 0
     cfg.MODEL.BOXINST.POINT_ANNO = 0
     cfg.MODEL.BOXINST.PAIRWISE.ENABLED = True
+    cfg.MODEL.BOXINST.LOSS_WEIGHT = 1.0

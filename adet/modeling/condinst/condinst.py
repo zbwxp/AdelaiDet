@@ -18,6 +18,7 @@ from .mask_branch import build_mask_branch
 
 from adet.utils.comm import aligned_bilinear
 import numpy as np
+import matplotlib.pyplot as plt 
 
 
 __all__ = ["CondInst"]
